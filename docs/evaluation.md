@@ -1,0 +1,84 @@
+# Evaluation
+
+Roadmap "done when": **field-level accuracy reported on 30+ documents, and no invalid record saved without review.**
+
+## Corpus (target: 36+ documents)
+
+| Source | Count | Notes |
+|---|---|---|
+| Synthetic GST invoices (HTML templates → PDF via `scripts/generate_samples.py`) | ~20 | Ground truth known by construction. Vary layout, GST rates, intra vs inter-state, 1-3 pages, with and without text layer |
+| Degraded variants (blur, skew, low resolution, phone-photo look) | ~6 | Same ground truth, harder input |
+| Deliberate failure cases | ~6 | Invalid GSTIN, missing GSTIN, buyer ≠ client, total mismatch, wrong tax split, duplicate |
+| Receipts (fuel, retail, restaurant) | ~6 | Synthetic, or a public dataset after checking its licence (SROIE, CORD) |
+| Own bills, personal details removed | few | Only if fully redacted |
+
+All documents must be fictional, synthetic, redacted, or properly licensed. GSTINs in synthetic bills must pass the checksum (generated, not real businesses), except in deliberate failure cases.
+
+## Dev / test split
+
+- **dev** (~60 %): used while writing prompts and tuning the confidence threshold.
+- **test** (~40 %): touched only for reported numbers. Prompts are never tuned on it.
+
+Without this split the reported accuracy is just a measure of how well the prompt was fitted to those files.
+
+## manifest.json
+
+One entry per document. It is the evaluation contract.
+
+```json
+{
+  "documents": [
+    {
+      "file": "inv-001.pdf",
+      "split": "dev",
+      "client": "C001",
+      "type": "invoice",
+      "expected_status": "ready",
+      "expected_errors": [],
+      "fields": {
+        "vendor_name": "Shree Traders",
+        "vendor_gstin": "27AAAAA0000A1Z5",
+        "invoice_number": "ST/24-25/0042",
+        "invoice_date": "2025-01-14",
+        "taxable_value": "10000.00",
+        "cgst": "900.00",
+        "sgst": "900.00",
+        "igst": "0.00",
+        "total": "11800.00"
+      }
+    }
+  ]
+}
+```
+
+Failure cases list `expected_status: "needs_review"` and the expected error codes from [policy-rules.md](policy-rules.md).
+
+## Metrics
+
+| Metric | Definition |
+|---|---|
+| Field accuracy | Per field, % exactly correct after normalisation (ISO dates, `Decimal` amounts, upper-case GSTIN). Reported per field and overall |
+| Line-item accuracy | % of line items matched with all their fields correct |
+| Exact-document match | % of documents with every required field correct |
+| Status accuracy | % where predicted `ready` / `needs_review` matches expected |
+| Error-code recall / precision | Expected blocking errors found; false alarms raised |
+| Provenance hit rate | % of fields whose highlighted box overlaps the true value location |
+| **Safety invariant** | **Zero** documents with a blocking error end `ready` or `approved`. Any violation fails the run |
+| Cost and time | Average seconds, API calls and tokens per document |
+
+## Experiments
+
+Run the same test split for each setup and report one table:
+
+| Setup | Field acc. | Exact-doc | Status acc. | Sec/doc | API calls/doc |
+|---|---|---|---|---|---|
+| Gemini, reading A only | | | | | |
+| Gemini, A + B on doubt | | | | | |
+| Gemini, A + B always | | | | | |
+| NVIDIA, reading A only | | | | | |
+
+Plus an error analysis: the ten worst fields, with one example each and why it failed.
+
+## Scripts
+
+`scripts/evaluate_corpus.py` runs the pipeline over `samples/` and prints the tables above to the console and `evaluation/results-<date>.md`. It calls live APIs, so run it deliberately; cache readings by file hash to stay inside free-tier limits.

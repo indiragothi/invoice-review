@@ -1,0 +1,30 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.ruff_cache/
+.pytest_cache/
+
+# node
+node_modules/
+dist/
+
+# local data
+*.db
+*.sqlite
+*.sqlite3
+backend/uploads/
+backend/data/
+playground/output/
+
+# real documents must never be committed (synthetic samples are allowed in samples/)
+private/
+
+# os / editor
+.DS_Store
+Thumbs.db
