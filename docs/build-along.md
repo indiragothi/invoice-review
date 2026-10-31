@@ -366,3 +366,26 @@ Important locations: `backend/app/normalisation/words.py`, `backend/app/validati
 Risk: dropping punctuation could make two different numbers equal (`A-1/2` and `A12`). That is rare, the issue is shown with the other document's id, and the reviewer decides; the alternative (exact match) would miss the common re-typed or OCR-spaced duplicate.
 
 Important locations: `backend/app/validation/duplicates.py`, `backend/tests/test_duplicates.py`.
+
+### Slice 17: Confidence caps and review status  (milestone M2)
+
+- **Outcome:** two modules and one fix.
+  - `validation/confidence.py`: `apply_format_caps(fields)` returns a copy where a value that fails its own format has confidence at most 0.3 (policy-rules.md): an invalid GSTIN, a date that is not a real date, an amount that is not a number (including line-item and tax-row cells). It never raises a confidence. An ambiguous date is still a readable date, so it is not capped (it already has its own blocking issue).
+  - `validation/review.py`: `review_document(document, fields, client, today, threshold, existing)` is the whole validation step in one pure call: format caps, then `validate_invoice` / `validate_receipt`, then tidy-up, then the status. It returns `ReviewResult(status, issues, fields)`.
+  - Status: `ready` = no blocking error and every required field is grounded and at or above the threshold (0.80); otherwise `needs_review`. (`processing`, `failed`, `approved`, `rejected` belong to the pipeline and the human.) Required fields: vendor name, vendor GSTIN, invoice number, date, total for invoices; merchant, date, total for receipts.
+  - Tidy-up: blocking errors first; and no `LOW_CONFIDENCE_FIELD` on a field that already has an error, because the format cap would otherwise report an invalid GSTIN twice.
+- **Fix to slice 14:** for receipts I had treated a printed GSTIN as a required field for confidence. Policy says only merchant, date and total are required, and the manifest expects the phone-photo fuel receipt (GSTIN OCR confidence 0.71) to be `ready`. Now a printed GSTIN still has to be found on the page (a made-up one must not slip through; `UNGROUNDED_REQUIRED_FIELD`) and must be valid if printed, but a low confidence on it is no warning and does not change the status.
+- **Why:** M3's pipeline step then needs only this one call for its validation stage, and the status rule lives in one tested place.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest                                  # 267 tests (23 new)
+  uv run --locked --no-sync python ../playground/rules_samples.py   # all 12 documents: errors, status, duplicates
+  ```
+
+- **Result:** 267 tests pass; ruff clean. On all 12 cached samples, both the blocking codes and the status equal the manifest: 12/12 (eight `ready`, four `needs_review`: 05, 06, 07, 08). Keys unique and re-upload flagged: 12/12. The fuel receipt is `ready` with one warning, `missing_tax_breakup`. No API calls, no new dependencies.
+- **Checkpoint:** `rules_samples.py` ends with `AGREE 12/12 documents (errors and status)`.
+
+Not built yet: the cap of 0.5 for two readings that disagree (needs the second reading, M3). `READINGS_DISAGREE` and `DUPLICATE_FILE` are also added by the pipeline.
+
+Important locations: `backend/app/validation/confidence.py`, `backend/app/validation/review.py`, `backend/tests/test_confidence.py`, `backend/tests/test_review.py`.

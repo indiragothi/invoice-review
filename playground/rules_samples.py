@@ -1,7 +1,8 @@
-"""Experiment: ground, normalise and run the invoice and receipt rules on the cached extractions.
+"""Experiment: ground, normalise and review every cached extraction. Offline, no API calls.
 
-Offline. Compares the blocking codes the rules find (header + amount rules) with the
-manifest.json `expected_errors`, only for the codes implemented so far. Run from backend/:
+For each sample it runs the whole M2 validation (`review_document`) and compares the blocking
+codes and the status with manifest.json (`expected_errors`, `expected_status`), then checks the
+duplicate keys. Run from backend/ after `extract_samples.py all` has filled the cache:
 
     uv run --locked --no-sync python ../playground/rules_samples.py
 """
@@ -22,87 +23,62 @@ from app.reader import read_document  # noqa: E402
 from app.schemas.extraction import Extraction  # noqa: E402
 from app.schemas.issues import Severity  # noqa: E402
 from app.validation.duplicates import invoice_key, receipt_key  # noqa: E402
-from app.validation.invoice import validate_invoice  # noqa: E402
-from app.validation.receipt import validate_receipt  # noqa: E402
+from app.validation.review import review_document  # noqa: E402
 
 CACHE = Path(__file__).resolve().parent / "output" / "extract"
 TODAY = date(2026, 10, 31)  # the samples are dated Aug - Oct 2026
-IMPLEMENTED = {
-    "missing_vendor_name",
-    "missing_invoice_number",
-    "missing_invoice_date",
-    "invalid_date",
-    "ambiguous_date",
-    "missing_total",
-    "missing_vendor_gstin",
-    "invalid_vendor_gstin",
-    "invalid_buyer_gstin",
-    "buyer_not_client",
-    "ungrounded_required_field",
-    "line_items_sum_mismatch",
-    "total_mismatch",
-    "tax_split_inconsistent",
-    "missing_merchant",
-    "missing_receipt_date",
-}
 
 
 def main() -> None:
     manifest = json.loads((APP_CONFIG.samples_dir / "manifest.json").read_text(encoding="utf-8"))
-    agree = checked = 0
-    seen: dict[str, tuple] = {}
+    loaded = {}
     for entry in manifest["documents"]:
         path = APP_CONFIG.samples_dir / entry["file"]
         cached = json.loads((CACHE / f"{path.stem}.json").read_text(encoding="utf-8"))
         extraction = Extraction.model_validate(cached["extraction"])
         document = normalise_extraction(extraction)
-        if document is None:
-            continue
         fields = ground_extraction(extraction, read_document(path.read_bytes()).document)
-        seen[path.stem] = (document, fields, CLIENTS_BY_ID[entry["client"]])
-        if document.document_type == "invoice":
-            client = CLIENTS_BY_ID[entry["client"]]
-            issues = validate_invoice(document, fields, client, TODAY)
-        else:
-            issues = validate_receipt(document, fields, TODAY)
+        loaded[entry["file"]] = (entry, document, fields)
 
-        found = {i.code.value for i in issues if i.severity == Severity.ERROR}
-        expected = set(entry["expected_errors"]) & IMPLEMENTED
-        ok = found == expected
+    agree = 0
+    for file, (entry, document, fields) in loaded.items():
+        client = CLIENTS_BY_ID[entry["client"]]
+        result = review_document(document, fields, client, TODAY)
+
+        errors = {i.code.value for i in result.issues if i.severity == Severity.ERROR}
+        warnings = sorted(i.code.value for i in result.issues if i.severity == Severity.WARNING)
+        ok = errors == set(entry["expected_errors"]) and result.status == entry["expected_status"]
         agree += ok
-        checked += 1
-        warnings = sorted(i.code.value for i in issues if i.severity == Severity.WARNING)
         verdict = "OK " if ok else "BAD"
-        print(f"{verdict} {entry['file']}: errors {sorted(found)} want {sorted(expected)}")
+        print(f"{verdict} {file}: {result.status} (want {entry['expected_status']})")
+        print(f"      errors {sorted(errors)} want {sorted(entry['expected_errors'])}")
         if warnings:
             print(f"      warnings {warnings}")
-        for issue in issues:
+        for issue in result.issues:
             if issue.suggestion:
                 print(f"      {issue.code.value}: {issue.message}")
-    print(f"\nAGREE {agree}/{checked} documents")
-    check_duplicates(seen)
+    print(f"\nAGREE {agree}/{len(loaded)} documents (errors and status)")
+    check_duplicates(loaded)
 
 
-def check_duplicates(seen: dict[str, tuple]) -> None:
+def check_duplicates(loaded: dict) -> None:
     """Keys must be unique across the samples; uploading any sample again must flag exactly it."""
     keys = {
-        stem: invoice_key(doc) if doc.document_type == "invoice" else receipt_key(doc)
-        for stem, (doc, _, _) in seen.items()
+        file: invoice_key(doc) if doc.document_type == "invoice" else receipt_key(doc)
+        for file, (_, doc, _) in loaded.items()
     }
     unique = len(set(keys.values())) == len(keys) and None not in keys.values()
     flagged = 0
-    for stem, (doc, fields, client) in seen.items():
-        same_kind = {s: k for s, k in keys.items() if type(k) is type(keys[stem])}
-        if doc.document_type == "invoice":
-            issues = validate_invoice(doc, fields, client, TODAY, existing=same_kind)
-            code = "duplicate_invoice"
-        else:
-            issues = validate_receipt(doc, fields, TODAY, existing=same_kind)
-            code = "duplicate_receipt"
-        hit = [i for i in issues if i.code.value == code]
-        flagged += len(hit) == 1 and stem in hit[0].message
+    for file, (entry, doc, fields) in loaded.items():
+        same_kind = {f: k for f, k in keys.items() if type(k) is type(keys[file])}
+        result = review_document(
+            doc, fields, CLIENTS_BY_ID[entry["client"]], TODAY, existing=same_kind
+        )
+        code = "duplicate_invoice" if doc.document_type == "invoice" else "duplicate_receipt"
+        hits = [i for i in result.issues if i.code.value == code]
+        flagged += len(hits) == 1 and file in hits[0].message
     print(
-        f"DUPLICATES keys unique: {unique}; re-upload flagged against itself: {flagged}/{len(seen)}"
+        f"DUPLICATES keys unique: {unique}; re-upload flagged against itself: {flagged}/{len(keys)}"
     )
 
 

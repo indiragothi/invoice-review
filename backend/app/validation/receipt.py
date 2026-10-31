@@ -78,10 +78,12 @@ def validate_receipt(
             )
         )
 
-    required = REQUIRED_FIELDS + (("vendor_gstin",) if receipt.vendor_gstin else ())
     if duplicate := receipt_duplicate_issue(receipt, existing or {}):
         issues.append(duplicate)
 
-    issues += ungrounded_issues(fields, required)
-    issues += low_confidence_issues(fields, required, threshold)
+    # A printed GSTIN must at least be found on the page (a made-up one must not slip through),
+    # but only merchant, date and total are required fields for confidence and status.
+    grounded_keys = REQUIRED_FIELDS + (("vendor_gstin",) if receipt.vendor_gstin else ())
+    issues += ungrounded_issues(fields, grounded_keys)
+    issues += low_confidence_issues(fields, REQUIRED_FIELDS, threshold)
     return issues

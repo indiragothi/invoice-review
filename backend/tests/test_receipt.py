@@ -131,3 +131,9 @@ def test_low_confidence_is_a_warning():
     assert [(i.code, i.severity) for i in issues] == [
         (IssueCode.LOW_CONFIDENCE_FIELD, Severity.WARNING)
     ]
+
+
+def test_a_printed_gstin_read_with_low_confidence_is_not_a_warning():
+    # GSTIN is optional on a receipt; only merchant, date and total are required fields.
+    fields = {"vendor_gstin": GroundedField(raw="x", grounding="grounded", confidence=0.5)}
+    assert codes(rcpt(vendor_gstin="23QNFFS1408C1ZO"), fields) == []
