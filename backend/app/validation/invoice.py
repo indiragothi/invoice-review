@@ -1,7 +1,10 @@
 """Invoice rules (docs/policy-rules.md). Pure: everything comes in as arguments.
 
-Models provide evidence, these rules decide. This module grows over two slices: the header
-rules here (who, what number, when, GSTINs, grounding), then the money and line rules.
+Models provide evidence, these rules decide. `header_issues`: who, what number, when, GSTINs,
+grounding. `amount_issues`: totals, tax split, line items. `validate_invoice` runs both.
+
+Not here by design: amount in words, duplicates (need existing records), and the two-reading
+and same-file warnings (pipeline).
 """
 
 from datetime import date
@@ -11,12 +14,14 @@ from app.config import APP_CONFIG
 from app.schemas.documents import Invoice
 from app.schemas.fields import GroundedField
 from app.schemas.issues import IssueCode, ValidationIssue, make_issue
+from app.validation import tax
 from app.validation.shared import (
     date_issues,
     gstin_issue,
     low_confidence_issues,
     ungrounded_issues,
 )
+from app.validation.tax_slabs import is_valid_slab
 
 # Field keys as grounding names them.
 REQUIRED_FIELDS = ("vendor_name", "vendor_gstin", "invoice_number", "invoice_date", "total")
@@ -112,3 +117,89 @@ def _gstin_issues(invoice: Invoice, client: Client) -> list[ValidationIssue]:
             )
         )
     return issues
+
+
+def amount_issues(invoice: Invoice, client: Client) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    totals = tax.tax_totals(invoice.tax_lines)
+
+    supply = tax.supply_type(
+        invoice.vendor_gstin, invoice.place_of_supply_code, invoice.buyer_gstin, client.state_code
+    )
+    # With an unreadable tax amount the sums are wrong, so neither the split nor the total is
+    # judged (the unreadable value is reported where it is read).
+    if supply and not totals.unreadable and (problem := tax.tax_split_problem(supply, totals)):
+        issues.append(
+            make_issue(IssueCode.TAX_SPLIT_INCONSISTENT, _SPLIT_MESSAGES[problem], "tax_lines")
+        )
+
+    lines = tax.line_items_sum(invoice.line_items)
+    if lines is not None and invoice.taxable_value is not None:
+        if tax.differs(lines, invoice.taxable_value):
+            issues.append(
+                make_issue(
+                    IssueCode.LINE_ITEMS_SUM_MISMATCH,
+                    f"The line items add up to {lines}, but the taxable value is "
+                    f"{invoice.taxable_value}.",
+                    "line_items",
+                )
+            )
+
+    computed = tax.invoice_computed_total(invoice.taxable_value, totals, invoice.round_off)
+    if computed is not None and invoice.total is not None and not totals.unreadable:
+        if tax.differs(computed, invoice.total):
+            issues.append(
+                make_issue(
+                    IssueCode.TOTAL_MISMATCH,
+                    f"Taxable value + tax + round-off is {computed}, but the total is "
+                    f"{invoice.total}.",
+                    "total",
+                )
+            )
+
+    issues += _line_item_issues(invoice)
+    return issues
+
+
+_SPLIT_MESSAGES = {
+    "igst_on_intra": "IGST is charged on a supply within the same state.",
+    "cgst_sgst_unequal": "CGST and SGST are not equal on a supply within the same state.",
+    "state_tax_on_inter": "CGST / SGST is charged on a supply to another state.",
+}
+
+
+def _line_item_issues(invoice: Invoice) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    rate_date = invoice.invoice_date.value
+    for index, item in enumerate(invoice.line_items):
+        if not item.hsn_sac:
+            issues.append(
+                make_issue(
+                    IssueCode.MISSING_HSN_SAC,
+                    f"Line {index + 1} has no HSN / SAC code.",
+                    f"line_items[{index}].hsn_sac",
+                )
+            )
+        if (
+            item.gst_rate is not None
+            and rate_date is not None
+            and not is_valid_slab(item.gst_rate, rate_date)
+        ):
+            issues.append(
+                make_issue(
+                    IssueCode.UNUSUAL_TAX_RATE,
+                    f"Line {index + 1}: {item.gst_rate}% is not a GST slab on {rate_date}.",
+                    f"line_items[{index}].gst_rate",
+                )
+            )
+    return issues
+
+
+def validate_invoice(
+    invoice: Invoice,
+    fields: dict[str, GroundedField],
+    client: Client,
+    today: date,
+    threshold: float = APP_CONFIG.confidence_threshold,
+) -> list[ValidationIssue]:
+    return header_issues(invoice, fields, client, today, threshold) + amount_issues(invoice, client)

@@ -278,3 +278,23 @@ Important locations: `backend/app/validation/dates.py`, `backend/tests/test_date
 Next (part 2): money and line rules (`LINE_ITEMS_SUM_MISMATCH`, `TOTAL_MISMATCH`, `TAX_SPLIT_INCONSISTENT`, `MISSING_HSN_SAC`, `UNUSUAL_TAX_RATE`) and one `validate_invoice()` that joins both parts. Not in `invoice.py` by design: `AMOUNT_IN_WORDS_MISMATCH` (own slice), duplicates (need existing records), `READINGS_DISAGREE` and `DUPLICATE_FILE` (pipeline, M3).
 
 Important locations: `backend/app/validation/invoice.py`, `validation/shared.py`, `backend/app/schemas/issues.py`, `backend/tests/test_invoice_header.py`, `playground/rules_samples.py`.
+
+### Slice 13: Invoice rules, part 2: money and line rules  (milestone M2)
+
+- **Outcome:** `amount_issues(invoice, client)` and `validate_invoice(invoice, fields, client, today, threshold)` in `backend/app/validation/invoice.py`. `validate_invoice` = header rules (slice 12) + amount rules.
+  - Blocking: `TOTAL_MISMATCH` (taxable value + all tax + cess + round-off vs the total, more than ₹1 apart; the message shows both numbers), `LINE_ITEMS_SUM_MISMATCH` (line amounts vs taxable value), `TAX_SPLIT_INCONSISTENT` (IGST on a same-state supply, unequal CGST / SGST, CGST / SGST on an other-state supply).
+  - Warnings, one per line, pointing at `line_items[i].hsn_sac` / `.gst_rate`: `MISSING_HSN_SAC`, `UNUSUAL_TAX_RATE` (the line's GST rate is not a slab on the invoice date; skipped when the rate or a real date is missing).
+- **Decision (found by a test):** if any tax amount could not be read, the sums are wrong, so neither the split nor the total is judged. Otherwise an unreadable SGST counted as 0 would raise a false `TAX_SPLIT_INCONSISTENT`.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest                                  # 182 tests (18 new)
+  uv run --locked --no-sync python ../playground/rules_samples.py   # offline: ground + normalise + all invoice rules vs manifest.json
+  ```
+
+- **Result:** 182 tests pass; ruff clean. On the 10 invoices among the 12 cached samples the blocking codes equal `expected_errors` on 10/10: sample 05 `invalid_vendor_gstin`, 06 `total_mismatch`, 07 `tax_split_inconsistent`, 08 `buyer_not_client`, the other six clean; no warnings on any sample. No API calls, no new dependencies.
+- **Checkpoint:** `rules_samples.py` ends with `AGREE 10/10 invoices`.
+
+Still open for invoices: `AMOUNT_IN_WORDS_MISMATCH` (own slice), `DUPLICATE_INVOICE` (duplicate-key slice), `READINGS_DISAGREE` and `DUPLICATE_FILE` (pipeline, M3).
+
+Important locations: `backend/app/validation/invoice.py`, `backend/tests/test_invoice_amounts.py`.

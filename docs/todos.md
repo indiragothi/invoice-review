@@ -93,7 +93,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [x] GSTIN: format, state code, checksum, one-character fix suggestion
 - [x] Tax: intra vs inter-state split, total and line-item sums with ₹1 tolerance, dated slab table
 - [x] Dates: future, old invoice, financial year
-- [ ] Invoice rules (all blocking errors and warnings in `policy-rules.md`)
+- [x] Invoice rules (all blocking errors and warnings in `policy-rules.md`)
 - [ ] Receipt rules
 - [ ] Amount-in-words check (lakh / crore)
 - [ ] Duplicate key (vendor GSTIN + invoice number + financial year)

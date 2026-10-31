@@ -37,8 +37,10 @@ def main() -> None:
             counts[field.grounding] += 1
             if field.grounding == "ungrounded":
                 notes.append(f"   UNGROUNDED {name}={field.raw!r} cited {field.evidence}")
-            elif field.grounding == "grounded" and name in cited and set(field.evidence) - set(
-                cited[name]
+            elif (
+                field.grounding == "grounded"
+                and name in cited
+                and set(field.evidence) - set(cited[name])
             ):
                 total["repointed"] += 1
                 moved = f"{cited[name]} -> {field.evidence}"

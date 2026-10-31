@@ -1,7 +1,7 @@
 """Experiment: ground, normalise and run the invoice rules on the cached extractions.
 
-Offline. Compares the blocking codes the rules find with manifest.json `expected_errors`,
-only for the codes implemented so far. Run from backend/:
+Offline. Compares the blocking codes the rules find (header + amount rules) with the
+manifest.json `expected_errors`, only for the codes implemented so far. Run from backend/:
 
     uv run --locked --no-sync python ../playground/rules_samples.py
 """
@@ -22,7 +22,7 @@ from app.reader import read_document  # noqa: E402
 from app.schemas.documents import Invoice  # noqa: E402
 from app.schemas.extraction import Extraction  # noqa: E402
 from app.schemas.issues import Severity  # noqa: E402
-from app.validation.invoice import header_issues  # noqa: E402
+from app.validation.invoice import validate_invoice  # noqa: E402
 
 CACHE = Path(__file__).resolve().parent / "output" / "extract"
 TODAY = date(2026, 10, 31)  # the samples are dated Aug - Oct 2026
@@ -38,6 +38,9 @@ IMPLEMENTED = {
     "invalid_buyer_gstin",
     "buyer_not_client",
     "ungrounded_required_field",
+    "line_items_sum_mismatch",
+    "total_mismatch",
+    "tax_split_inconsistent",
 }
 
 
@@ -53,7 +56,7 @@ def main() -> None:
             continue
         fields = ground_extraction(extraction, read_document(path.read_bytes()).document)
         client = CLIENTS_BY_ID[entry["client"]]
-        issues = header_issues(document, fields, client, TODAY)
+        issues = validate_invoice(document, fields, client, TODAY)
 
         found = {i.code.value for i in issues if i.severity == Severity.ERROR}
         expected = set(entry["expected_errors"]) & IMPLEMENTED
