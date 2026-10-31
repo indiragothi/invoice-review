@@ -206,3 +206,30 @@ Notes:
 - Whether the buyer GSTIN equals the client's (`BUYER_NOT_CLIENT`) is a plain comparison and lives with the invoice rules.
 
 Important locations: `backend/app/validation/gstin.py`, `backend/tests/test_gstin.py`.
+
+### Slice 10: Tax split, totals and the dated slab table  (milestone M2)
+
+- **Outcome:** `backend/app/validation/tax.py` and `tax_slabs.py`, pure functions on normalised values.
+  - `supply_type(vendor_gstin, place_of_supply_code, buyer_gstin, client_state_code)`: intra if the vendor's state equals the place of supply; if that is not printed, the buyer GSTIN state, then the client's state (policy-rules.md). None when it cannot be told.
+  - `tax_totals(tax_lines)`: sums every tax row per head (CGST / SGST / UTGST / IGST / cess); an unreadable amount sets `unreadable` instead of silently counting as 0.
+  - `tax_split_problem(...)`: `igst_on_intra`, `cgst_sgst_unequal` (more than ₹1 apart; UTGST counts as the state side), `state_tax_on_inter`, or None. A document with no tax has no split problem.
+  - `line_items_sum`, `invoice_computed_total` (taxable + all tax + round-off), `receipt_computed_total` (lines + tax + round-off), `differs` (more than ₹1 apart; exactly ₹1 is fine).
+  - `tax_slabs.py`: `SLAB_TABLES` dated by `effective_from`; `is_valid_slab(rate, date)`. Before 22-09-2025: 0, 0.25, 1.5, 3, 5, 12, 18, 28. From 22-09-2025: 0, 0.25, 3, 5, 18, 40.
+- **Why:** These are the facts behind `TAX_SPLIT_INCONSISTENT`, `TOTAL_MISMATCH`, `LINE_ITEMS_SUM_MISMATCH` and `UNUSUAL_TAX_RATE`. The invoice / receipt rules (next slices) turn them into issues with messages.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest                                 # 125 tests (42 new, tax + slabs)
+  uv run --locked --no-sync python ../playground/tax_samples.py    # offline, cached extractions vs manifest.json
+  ```
+
+- **Result:** 125 tests pass; ruff clean. On the 12 cached samples the three tax error codes found by code equal the manifest's `expected_errors` on 12/12: sample 06 gives `total_mismatch` (computed 75,138.00 vs printed 76,138.00), sample 07 gives `tax_split_inconsistent` (IGST on a same-state supply), the other ten are clean. No API calls, no new dependencies.
+- **Checkpoint:** `tax_samples.py` ends with `AGREE 12/12`.
+
+Notes:
+- **The slab table is not verified.** It is written from the policy text (the 22-09-2025 rationalisation), plus 1.5 % in the old table for cut diamonds. Check it against the official CBIC notifications. A rate outside the table is only a warning.
+- A bill dated close to 22-09-2025 may legitimately use either set (transition period); today it can get a warning. Decide later whether to accept both sets for a window around that date.
+- Sample 11 (fuel receipt) has no line items in the cached `extract_v1` output, so its receipt total cannot be cross-checked yet. That is the known `extract_v2` prompt item.
+- Not in this slice: dates (future, old, financial year), and the rule that line GST rates are checked against the slabs (rules slice).
+
+Important locations: `backend/app/validation/tax.py`, `backend/app/validation/tax_slabs.py`, `backend/tests/test_tax.py`, `playground/tax_samples.py`.
