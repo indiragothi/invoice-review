@@ -298,3 +298,27 @@ Important locations: `backend/app/validation/invoice.py`, `validation/shared.py`
 Still open for invoices: `AMOUNT_IN_WORDS_MISMATCH` (own slice), `DUPLICATE_INVOICE` (duplicate-key slice), `READINGS_DISAGREE` and `DUPLICATE_FILE` (pipeline, M3).
 
 Important locations: `backend/app/validation/invoice.py`, `backend/tests/test_invoice_amounts.py`.
+
+### Slice 14: Receipt rules  (milestone M2)
+
+- **Outcome:** `backend/app/validation/receipt.py` with `validate_receipt(receipt, fields, today, threshold)`. Receipts need fewer fields: no invoice number, no buyer GSTIN, GST may be absent.
+  - Blocking: `MISSING_MERCHANT`, `MISSING_RECEIPT_DATE` / `INVALID_DATE` / `AMBIGUOUS_DATE`, `MISSING_TOTAL`, `LINE_ITEMS_SUM_MISMATCH` (line amounts + tax + round-off vs the total, only if line items exist), `INVALID_VENDOR_GSTIN` (only if a GSTIN is printed), `UNGROUNDED_REQUIRED_FIELD` (merchant, date, total, and the GSTIN when printed).
+  - Warnings: `MISSING_TAX_BREAKUP` (no tax rows at all), `LOW_CONFIDENCE_FIELD`.
+- **Shared code:** the date, GSTIN, grounding and confidence checks come from `validation/shared.py`. `date_issues` got `warn_old`; receipts pass `False`, because policy-rules.md lists no old-bill warning for receipts.
+- **Decisions:** as for invoices, an unreadable tax amount means the line-items check is skipped. A tax row with amount 0 counts as a tax breakup (the fuel slip with "GST nil" is not warned).
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest                                  # 197 tests (15 new)
+  uv run --locked --no-sync python ../playground/rules_samples.py   # all 12 documents: invoice and receipt rules vs manifest.json
+  ```
+
+- **Result:** 197 tests pass; ruff clean. On all 12 cached samples the blocking codes equal `expected_errors`: 12/12 (the 10 invoices as before; both receipts clean). The fuel receipt (sample 11) gets two warnings: `missing_tax_breakup`, and `low_confidence_field` on the vendor GSTIN (OCR confidence 0.71 on the phone photo, threshold 0.80). That warning is correct: a reviewer should look at it. No API calls, no new dependencies.
+- **Checkpoint:** `rules_samples.py` ends with `AGREE 12/12 documents`.
+
+Limits:
+- The receipt total check assumes line amounts are before tax. A receipt whose line prices already include GST would raise a false `LINE_ITEMS_SUM_MISMATCH`. None of the 12 samples does this; watch for it in the M5 corpus.
+- Sample 11 still has no line items in the cached `extract_v1` output, so its total is not cross-checked (known; `extract_v2`).
+- `DUPLICATE_RECEIPT` (merchant + date + total) goes with the duplicate-key slice.
+
+Important locations: `backend/app/validation/receipt.py`, `backend/tests/test_receipt.py`.

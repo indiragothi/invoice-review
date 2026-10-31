@@ -36,7 +36,12 @@ def gstin_issue(gstin: str, field: str, invalid_code: IssueCode) -> ValidationIs
 
 
 def date_issues(
-    parsed: NormalisedDate, today: date, field: str, missing_code: IssueCode
+    parsed: NormalisedDate,
+    today: date,
+    field: str,
+    missing_code: IssueCode,
+    *,
+    warn_old: bool = True,
 ) -> list[ValidationIssue]:
     messages = {
         "missing": (missing_code, "The date is not printed or was not found."),
@@ -49,7 +54,8 @@ def date_issues(
         ),
         "old": (IssueCode.OLD_INVOICE, f"The date {parsed.value} is more than 12 months old."),
     }
-    return [make_issue(*messages[problem], field) for problem in date_problems(parsed, today)]
+    problems = [p for p in date_problems(parsed, today) if warn_old or p != "old"]
+    return [make_issue(*messages[problem], field) for problem in problems]
 
 
 def ungrounded_issues(

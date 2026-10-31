@@ -1,4 +1,4 @@
-"""Experiment: ground, normalise and run the invoice rules on the cached extractions.
+"""Experiment: ground, normalise and run the invoice and receipt rules on the cached extractions.
 
 Offline. Compares the blocking codes the rules find (header + amount rules) with the
 manifest.json `expected_errors`, only for the codes implemented so far. Run from backend/:
@@ -19,10 +19,10 @@ from app.config import APP_CONFIG  # noqa: E402
 from app.normalisation.assemble import normalise_extraction  # noqa: E402
 from app.pipeline.grounding import ground_extraction  # noqa: E402
 from app.reader import read_document  # noqa: E402
-from app.schemas.documents import Invoice  # noqa: E402
 from app.schemas.extraction import Extraction  # noqa: E402
 from app.schemas.issues import Severity  # noqa: E402
 from app.validation.invoice import validate_invoice  # noqa: E402
+from app.validation.receipt import validate_receipt  # noqa: E402
 
 CACHE = Path(__file__).resolve().parent / "output" / "extract"
 TODAY = date(2026, 10, 31)  # the samples are dated Aug - Oct 2026
@@ -41,6 +41,8 @@ IMPLEMENTED = {
     "line_items_sum_mismatch",
     "total_mismatch",
     "tax_split_inconsistent",
+    "missing_merchant",
+    "missing_receipt_date",
 }
 
 
@@ -52,11 +54,14 @@ def main() -> None:
         cached = json.loads((CACHE / f"{path.stem}.json").read_text(encoding="utf-8"))
         extraction = Extraction.model_validate(cached["extraction"])
         document = normalise_extraction(extraction)
-        if not isinstance(document, Invoice):
+        if document is None:
             continue
         fields = ground_extraction(extraction, read_document(path.read_bytes()).document)
-        client = CLIENTS_BY_ID[entry["client"]]
-        issues = validate_invoice(document, fields, client, TODAY)
+        if document.document_type == "invoice":
+            client = CLIENTS_BY_ID[entry["client"]]
+            issues = validate_invoice(document, fields, client, TODAY)
+        else:
+            issues = validate_receipt(document, fields, TODAY)
 
         found = {i.code.value for i in issues if i.severity == Severity.ERROR}
         expected = set(entry["expected_errors"]) & IMPLEMENTED
@@ -71,7 +76,7 @@ def main() -> None:
         for issue in issues:
             if issue.suggestion:
                 print(f"      {issue.code.value}: {issue.message}")
-    print(f"\nAGREE {agree}/{checked} invoices")
+    print(f"\nAGREE {agree}/{checked} documents")
 
 
 if __name__ == "__main__":
