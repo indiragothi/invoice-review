@@ -40,13 +40,15 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [x] Fill in the Gemini rows of `free-tier-limits.md` (model chosen: `gemini-3.5-flash-lite`)
 
 ### Backend scaffold
-- [ ] Propose exact backend dependency versions and get approval
-- [ ] `backend/pyproject.toml` with exact pins, `add-bounds = "exact"`, `exclude-newer = "7 days"`, Ruff config
-- [ ] `uv sync` → commit `uv.lock`
-- [ ] `app/config.py` (pydantic-settings, reads `backend/.env`, fails clearly on missing keys)
+- [x] Propose backend dependencies and get approval
+- [x] `backend/pyproject.toml` with exact pins, `add-bounds = "exact"`, `exclude-newer = "7 days"`, Ruff config
+- [x] Pin Python 3.12 (`.python-version`) to match the Docker image
+- [x] `uv sync` → `uv.lock` (verified with `uv sync --locked` and an import check)
+- [x] `app/config.py` (pydantic-settings, reads `backend/.env`, fails clearly on missing keys)
 - [x] *(you)* Copy `backend/.env.example` to `backend/.env` and paste the key
-- [ ] `app/main.py` with `create_app()` and `GET /health`
-- [ ] Verify: `uvicorn` starts and `/health` returns OK; `ruff check` passes
+- [x] `app/main.py` with `create_app()` and `GET /health`
+- [x] Verify: `uvicorn` starts and `/health` returns OK; `ruff check` passes
+- [x] *(you)* Run the server yourself and open http://localhost:8000/health
 
 ### Frontend scaffold
 - [ ] Propose exact frontend dependency versions and get approval

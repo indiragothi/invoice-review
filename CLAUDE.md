@@ -46,7 +46,15 @@ The structural reference is Dave Ebbelaar's [e2e-invoice-review](https://github.
 
 ## Commands
 
-_Filled in when the projects are created in M1. Keep this section current._
+Backend (run from `backend/`):
+
+```powershell
+uv sync --locked                                                        # install exactly from uv.lock
+uv run --locked --no-sync uvicorn app.main:create_app --factory --reload --port 8000
+uv run --locked --no-sync ruff check app                                # lint
+```
+
+Frontend commands are added when the frontend project is created. Keep this section current.
 
 ## Architecture rules
 
