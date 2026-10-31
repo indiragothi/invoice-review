@@ -59,11 +59,12 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [x] *(you)* Open http://localhost:5173 and see the green "Backend connected" box
 
 ### Samples
-- [ ] Fixed client list (`app/clients.py`) with 2-3 fictional clients
-- [ ] `scripts/generate_samples.py` (reportlab + pillow) writing `samples/generated/` and `manifest.json` together
-- [ ] Synthetic GSTINs that pass the checksum and are not real businesses
-- [ ] First 12 documents: 4 clean invoices (intra + inter-state), 4 failure cases, 2 receipts, 1 two-page, 1 scan / photo-style
-- [ ] Verify: open the PDFs, manifest values match what is printed
+- [x] Fixed client list (`app/clients.py`) with 3 fictional clients
+- [x] `scripts/generate_samples.py` (reportlab + pillow) writing `samples/generated/` and `manifest.json` together
+- [x] Synthetic GSTINs that pass the checksum, built on made-up PANs
+- [x] First 12 documents: 4 clean invoices (intra + inter-state), 4 failure cases, 2 receipts, 1 two-page, 1 scan
+- [x] Verify: built-in scenario checks pass; previews checked by eye; output identical across runs
+- [x] *(you)* Open a few files in `samples/generated/` and compare with `manifest.json`
 
 ### Reader (playground first)
 - [ ] `playground/` PyMuPDF: digital PDF → words with boxes
