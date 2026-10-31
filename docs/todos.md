@@ -92,7 +92,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [ ] Prompt `extract_v2` (dev split only): receipt purchase rows are line items; vendor name excludes address words
 - [x] GSTIN: format, state code, checksum, one-character fix suggestion
 - [x] Tax: intra vs inter-state split, total and line-item sums with ₹1 tolerance, dated slab table
-- [ ] Dates: future, old invoice, financial year
+- [x] Dates: future, old invoice, financial year
 - [ ] Invoice rules (all blocking errors and warnings in `policy-rules.md`)
 - [ ] Receipt rules
 - [ ] Amount-in-words check (lakh / crore)

@@ -233,3 +233,23 @@ Notes:
 - Not in this slice: dates (future, old, financial year), and the rule that line GST rates are checked against the slabs (rules slice).
 
 Important locations: `backend/app/validation/tax.py`, `backend/app/validation/tax_slabs.py`, `backend/tests/test_tax.py`, `playground/tax_samples.py`.
+
+### Slice 11: Date checks and the financial year  (milestone M2)
+
+- **Outcome:** `backend/app/validation/dates.py`. `date_problems(parsed, today)` returns what is wrong with a date: `missing` (not printed), `unreadable` (printed but no real date, e.g. 31-02-2026), `future` (after today; today itself is fine), `ambiguous`, or `old` (more than 12 months before today; exactly 12 months is fine). `financial_year(date)` gives `"2026-27"` (1 April to 31 March). `months_before` handles month ends (29 Feb -> 28 Feb).
+- **Rules later map these:** missing -> `MISSING_INVOICE_DATE` / `MISSING_RECEIPT_DATE`, unreadable and future -> `INVALID_DATE`, ambiguous -> `AMBIGUOUS_DATE`, old -> `OLD_INVOICE` (warning). `financial_year` feeds the duplicate key.
+- **Why:** `today` is passed in, so the function is pure and tests do not depend on the clock.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest      # 144 tests (19 new date tests)
+  ```
+
+- **Result:** 144 tests pass; ruff clean. The 12 cached samples (dates 14-08-2026 to 26-10-2026, checked against today = 31-10-2026) have no date problem and all fall in FY 2026-27. No API calls, no new dependencies.
+- **Checkpoint:** `date_problems(parse_date("15-11-2026"), date(2026, 10, 31))` -> `["future"]`.
+
+Decision: an ambiguous date is reported alone. Judging "future" or "old" on a day / month reading that may be wrong would give a misleading second issue; once the reviewer fixes the date, all rules run again.
+
+Not done: settling an ambiguous date from other dates on the document (the policy allows "unless the layout or other dates settle it"); every such date is flagged for now.
+
+Important locations: `backend/app/validation/dates.py`, `backend/tests/test_dates.py`.
