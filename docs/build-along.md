@@ -253,3 +253,28 @@ Decision: an ambiguous date is reported alone. Judging "future" or "old" on a da
 Not done: settling an ambiguous date from other dates on the document (the policy allows "unless the layout or other dates settle it"); every such date is flagged for now.
 
 Important locations: `backend/app/validation/dates.py`, `backend/tests/test_dates.py`.
+
+### Slice 12: Invoice rules, part 1: header, GSTINs, grounding  (milestone M2)
+
+- **Outcome:** `backend/app/validation/invoice.py` with `header_issues(invoice, fields, client, today, threshold)` and `validation/shared.py` (helpers receipts will reuse). `schemas/issues.py` gets `BLOCKING_CODES` and `make_issue()`, so the severity of every code is decided in one place.
+  - Blocking: `MISSING_VENDOR_NAME`, `MISSING_INVOICE_NUMBER`, `MISSING_INVOICE_DATE`, `INVALID_DATE` (unreadable or future), `AMBIGUOUS_DATE`, `MISSING_TOTAL`, `MISSING_VENDOR_GSTIN`, `INVALID_VENDOR_GSTIN` (with the fix as `suggestion` and in the message), `INVALID_BUYER_GSTIN`, `BUYER_NOT_CLIENT`, `UNGROUNDED_REQUIRED_FIELD`.
+  - Warnings: `MISSING_BUYER_GSTIN`, `INVOICE_NUMBER_TOO_LONG` (over 16), `OLD_INVOICE`, `REVERSE_CHARGE`, `LOW_CONFIDENCE_FIELD`.
+  - Required fields for the grounding and confidence checks: vendor name, vendor GSTIN, invoice number, invoice date, total.
+- **Why:** Rules receive plain values and return issues; they never touch files, the clock or the database. Each issue names the field it is about (`vendor_gstin`, `invoice_date`), so the UI can highlight the box.
+- **Decisions:**
+  - An invalid buyer GSTIN is reported as `INVALID_BUYER_GSTIN` only, not also as `BUYER_NOT_CLIENT` (its fix suggestion may point at the client).
+  - A missing or ungrounded value does not also get `LOW_CONFIDENCE_FIELD`; it already has its own issue.
+  - The confidence caps from policy-rules.md (GSTIN or date fails its format -> 0.3, readings disagree -> 0.5) are applied where confidence is computed, not here. Not built yet.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest                                  # 164 tests (20 new)
+  uv run --locked --no-sync python ../playground/rules_samples.py   # offline: ground + normalise + rules vs manifest.json
+  ```
+
+- **Result:** 164 tests pass; ruff clean. On the 10 invoices among the 12 cached samples, the blocking codes found equal `expected_errors` (for the codes built so far) on 10/10: sample 05 gives `invalid_vendor_gstin` with the suggestion `23QMRPW2963E1Z7`, sample 08 gives `buyer_not_client`, the rest are clean, and no sample raises a warning. No API calls, no new dependencies.
+- **Checkpoint:** `rules_samples.py` ends with `AGREE 10/10 invoices`.
+
+Next (part 2): money and line rules (`LINE_ITEMS_SUM_MISMATCH`, `TOTAL_MISMATCH`, `TAX_SPLIT_INCONSISTENT`, `MISSING_HSN_SAC`, `UNUSUAL_TAX_RATE`) and one `validate_invoice()` that joins both parts. Not in `invoice.py` by design: `AMOUNT_IN_WORDS_MISMATCH` (own slice), duplicates (need existing records), `READINGS_DISAGREE` and `DUPLICATE_FILE` (pipeline, M3).
+
+Important locations: `backend/app/validation/invoice.py`, `validation/shared.py`, `backend/app/schemas/issues.py`, `backend/tests/test_invoice_header.py`, `playground/rules_samples.py`.

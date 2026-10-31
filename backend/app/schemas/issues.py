@@ -51,3 +51,38 @@ class ValidationIssue(BaseModel):
     field: str | None = None  # e.g. "vendor_gstin" or "line_items[2].hsn_sac"
     message: str
     suggestion: str | None = None  # e.g. a one-character GSTIN fix; the human accepts it
+
+
+# Which codes block approval (docs/policy-rules.md). Everything else is a warning.
+BLOCKING_CODES: frozenset[IssueCode] = frozenset(
+    {
+        IssueCode.MISSING_VENDOR_NAME,
+        IssueCode.MISSING_INVOICE_NUMBER,
+        IssueCode.MISSING_INVOICE_DATE,
+        IssueCode.INVALID_DATE,
+        IssueCode.AMBIGUOUS_DATE,
+        IssueCode.MISSING_TOTAL,
+        IssueCode.MISSING_VENDOR_GSTIN,
+        IssueCode.INVALID_VENDOR_GSTIN,
+        IssueCode.INVALID_BUYER_GSTIN,
+        IssueCode.BUYER_NOT_CLIENT,
+        IssueCode.LINE_ITEMS_SUM_MISMATCH,
+        IssueCode.TOTAL_MISMATCH,
+        IssueCode.TAX_SPLIT_INCONSISTENT,
+        IssueCode.UNGROUNDED_REQUIRED_FIELD,
+        IssueCode.DUPLICATE_INVOICE,
+        IssueCode.MISSING_MERCHANT,
+        IssueCode.MISSING_RECEIPT_DATE,
+        IssueCode.DUPLICATE_RECEIPT,
+    }
+)
+
+
+def make_issue(
+    code: IssueCode, message: str, field: str | None = None, suggestion: str | None = None
+) -> ValidationIssue:
+    """Build an issue; the severity comes from the code, so rules never repeat it."""
+    severity = Severity.ERROR if code in BLOCKING_CODES else Severity.WARNING
+    return ValidationIssue(
+        code=code, severity=severity, field=field, message=message, suggestion=suggestion
+    )

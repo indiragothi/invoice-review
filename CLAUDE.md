@@ -59,6 +59,7 @@ uv run --locked --no-sync python ../playground/extract_samples.py all  # cached;
 uv run --locked --no-sync python ../playground/ground_samples.py        # grounding on cached extractions, offline
 uv run --locked --no-sync python ../playground/normalise_samples.py     # normalisation vs manifest, offline
 uv run --locked --no-sync python ../playground/tax_samples.py          # tax checks vs manifest, offline
+uv run --locked --no-sync python ../playground/rules_samples.py        # ground + normalise + rules vs manifest, offline
 uv run --locked --no-sync pytest                                        # pure-module tests
 ```
 
