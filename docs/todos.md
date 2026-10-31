@@ -10,7 +10,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 |---|---|
 | M0 Plan | ✅ Done |
 | M1 Scaffold, samples, read + extract | ✅ Done (NVIDIA check optional, open) |
-| M2 Ground + validate | ⬜ Not started |
+| M2 Ground + validate | 🟨 In progress |
 | M3 Pipeline + API | ⬜ Not started |
 | M4 Review UI | ⬜ Not started |
 | M5 Evaluation | ⬜ Not started |
@@ -84,9 +84,9 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 
 ## M2 Ground + validate
 
-- [ ] Pydantic models: invoice, receipt, line item, field-with-evidence, `ValidationIssue`
-- [ ] Grounding: value must appear in cited words; box = union of word boxes; `ungrounded` otherwise
-- [ ] Grounding: when cited IDs miss by a word, search the same line and re-point (seen on samples 08, 09)
+- [x] Pydantic models: invoice, receipt, line item, field-with-evidence, `ValidationIssue`
+- [x] Grounding: value must appear in cited words; box = union of word boxes; `ungrounded` otherwise
+- [x] Grounding: when cited IDs miss by a word, search the same line and re-point (seen on samples 08, 09)
 - [ ] Normalisation: Indian dates (DD-MM-YYYY, ambiguous flagged), amounts (`1,23,456.00` → `Decimal`), GSTIN upper-case
 - [ ] Normalisation: state name → state code for place of supply ("Karnataka" → 29)
 - [ ] Prompt `extract_v2` (dev split only): receipt purchase rows are line items; vendor name excludes address words

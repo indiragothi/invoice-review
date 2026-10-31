@@ -56,6 +56,8 @@ uv run --locked --no-sync python -m scripts.generate_samples           # rebuild
 uv run --locked --no-sync python -m scripts.check_gemini               # 1 API call
 uv run --locked --no-sync python ../playground/read_samples.py         # reader on all samples
 uv run --locked --no-sync python ../playground/extract_samples.py all  # cached; --fresh = 1 call/doc
+uv run --locked --no-sync python ../playground/ground_samples.py        # grounding on cached extractions, offline
+uv run --locked --no-sync pytest                                        # pure-module tests
 ```
 
 Frontend (run from `frontend/`):

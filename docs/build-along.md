@@ -122,3 +122,42 @@ What went wrong, and where it will be handled:
 Note: this exploratory run included test-split documents. From now on prompts are tuned on the dev split only (see `docs/evaluation.md`).
 
 Important locations: `backend/app/providers/__init__.py` (`build_model`, `format_words`, `extract`), `backend/app/schemas/extraction.py`, `backend/app/providers/prompts/extract_v1.md`, `backend/scripts/check_gemini.py`, `playground/extract_samples.py`.
+
+### Slice 6: Typed models for grounded fields, documents and issues  (milestone M2)
+
+- **Outcome:** Three small modules in `backend/app/schemas/`. `fields.py`: `GroundedField` (raw value, evidence IDs, box built by code, `grounding` = grounded / ungrounded / missing, source, confidence). `documents.py`: normalised `Invoice`, `Receipt`, `LineItem`, `TaxLine`, `NormalisedDate` (money is `Decimal`, dates are `date`, ambiguous flag kept). `issues.py`: `IssueCode` (every code in `policy-rules.md`, snake_case), `Severity`, `ValidationIssue`.
+- **Why:** The pure rules in `validation/` need typed input, and grounding/normalisation need somewhere to put their output. Raw model output stays in `extraction.py`; these are what code works on after checking it.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync ruff check app scripts ../playground
+  uv run --locked --no-sync python -c "from app.schemas.documents import Invoice; print(Invoice().model_dump_json())"
+  ```
+
+- **Result:** ruff passes; models import and serialise. No API calls, no new dependencies.
+- **Checkpoint:** `Invoice()` prints with all fields null and `invoice_date.ambiguous` false.
+
+Design notes: `ValidationIssue` has no `supplier_fixable` yet; it is derived from the fixed eligibility set in M3 (`correction_email/eligibility.py`). `suggestion` carries things like a one-character GSTIN fix.
+
+Important locations: `backend/app/schemas/fields.py`, `documents.py`, `issues.py`.
+
+### Slice 7: Grounding: check values against the cited words  (milestone M2)
+
+- **Outcome:** `backend/app/pipeline/grounding.py`. `ground_extraction(extraction, document)` turns every value the model returned (fields, line-item cells, tax rows) into a `GroundedField`: `grounded` (box = union of the real word boxes, trimmed to the smallest run of words that holds the value), `ungrounded` (not found: confidence 0, no box) or `missing` (null). Confidence is 1.0 for the PDF text layer and the mean word confidence for OCR. Comparison ignores spaces and case, so OCR text like "RestaurantPvtLtd" still matches.
+- **Re-pointing:** if the cited words do not contain the value, look for it as a **whole word** (or run of whole words), first along the same visual row, then among the 2 words either side in reading order, and take the match nearest the cited word. A fragment never counts ("9" is not found inside "1,980").
+- **Why:** This is the hallucination check and the source of provenance boxes. Code verifies the model's claim; the model never draws a box.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest                                      # 12 grounding tests
+  uv run --locked --no-sync python ../playground/ground_samples.py      # offline, uses the cached extractions
+  ```
+
+- **Result (all 12 samples, cached `extract_v1` output, no API calls):** 489 values grounded, 0 ungrounded, 15 missing (null fields). 7 values were re-pointed, all in samples 08 and 09 and all correct. Without re-pointing, 6 values in sample 09 were ungrounded. 12 tests pass; ruff clean.
+- **Checkpoint:** `ground_samples.py` ends with `TOTAL {'grounded': 489, 'ungrounded': 0, 'missing': 15, 'repointed': 7}`.
+
+What I found: the reader gives nearly every table cell its own `line` number, so "same line" cannot use `line`. A row is found by vertical overlap of the word boxes instead. In sample 09 the cited word was sometimes the first word of the next row (the serial number), hence the reading-order fallback.
+
+Known limit: a wrong number that also appears whole next to the cited word would be accepted (for example a rate "18" in the neighbouring cell). It is the nearest match and the reviewer sees the box, but the second reading (M3) is the real guard.
+
+Important locations: `backend/app/pipeline/grounding.py`, `backend/tests/test_grounding.py`, `playground/ground_samples.py`.
