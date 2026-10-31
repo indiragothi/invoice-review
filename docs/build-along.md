@@ -322,3 +322,23 @@ Limits:
 - `DUPLICATE_RECEIPT` (merchant + date + total) goes with the duplicate-key slice.
 
 Important locations: `backend/app/validation/receipt.py`, `backend/tests/test_receipt.py`.
+
+### Slice 15: Amount in words  (milestone M2)
+
+- **Outcome:** `backend/app/normalisation/words.py` with `parse_amount_in_words(text)`, and the rule `AMOUNT_IN_WORDS_MISMATCH` (warning) inside `amount_issues` in `validation/invoice.py`.
+  - Parser: Indian numbering (thousand, lakh / lakhs / lac, crore); `Rupees`, `Rs`, `INR`, `Only` and `and` are ignored; hyphens and commas are fine ("seventy-five"); the common misspelling "Fourty" is accepted; paise in both forms ("... and Thirty Four Paise" and "... and Paise Thirty Four"). Anything that is not a clean amount in words gives `None`.
+  - Rule: the words (as a number) must be within ₹1 of the printed total. If the words cannot be read, or the total is missing, nothing is judged.
+- **Why:** An invoice whose words and figure disagree is a classic error or tampering sign. Reading lakh / crore correctly matters: "One Lakh Eighteen Thousand" is 1,18,000.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest                                  # 225 tests (28 new)
+  uv run --locked --no-sync python ../playground/rules_samples.py   # all 12 documents, offline
+  ```
+
+- **Result:** 225 tests pass; ruff clean. As a one-off check (not committed) the parser read back the sample generator's own number-to-words for 20,023 numbers (edge cases plus 20,000 random up to 9,99,99,999) with 0 mismatches. On the 12 cached samples the 10 printed amounts in words all match their totals, so no new warning appears (`AGREE 12/12`). Sample 06 (total mismatch) correctly gets no words warning: its words equal its printed total. No API calls, no new dependencies.
+- **Checkpoint:** `parse_amount_in_words("Rupees One Lakh Fifteen Thousand Five Hundred Only")` -> `Decimal("115500")`.
+
+Limits: English words only (Hindi is M7). Receipts have no amount-in-words rule in policy-rules.md. A number written in words with a typo not in the word lists is treated as unreadable, so it is not flagged either way.
+
+Important locations: `backend/app/normalisation/words.py`, `backend/app/validation/invoice.py`, `backend/tests/test_amount_in_words.py`.

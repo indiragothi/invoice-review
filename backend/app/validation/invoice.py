@@ -3,14 +3,15 @@
 Models provide evidence, these rules decide. `header_issues`: who, what number, when, GSTINs,
 grounding. `amount_issues`: totals, tax split, line items. `validate_invoice` runs both.
 
-Not here by design: amount in words, duplicates (need existing records), and the two-reading
-and same-file warnings (pipeline).
+Not here by design: duplicates (need existing records), and the two-reading and same-file
+warnings (pipeline).
 """
 
 from datetime import date
 
 from app.clients import Client
 from app.config import APP_CONFIG
+from app.normalisation.words import parse_amount_in_words
 from app.schemas.documents import Invoice
 from app.schemas.fields import GroundedField
 from app.schemas.issues import IssueCode, ValidationIssue, make_issue
@@ -158,6 +159,17 @@ def amount_issues(invoice: Invoice, client: Client) -> list[ValidationIssue]:
             )
 
     issues += _line_item_issues(invoice)
+
+    # Words that cannot be read as an amount are not judged: no guessing either way.
+    in_words = parse_amount_in_words(invoice.amount_in_words)
+    if in_words is not None and invoice.total is not None and tax.differs(in_words, invoice.total):
+        issues.append(
+            make_issue(
+                IssueCode.AMOUNT_IN_WORDS_MISMATCH,
+                f"The total in words is {in_words}, but the figure is {invoice.total}.",
+                "amount_in_words",
+            )
+        )
     return issues
 
 
