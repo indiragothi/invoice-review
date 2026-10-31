@@ -51,7 +51,11 @@ Backend (run from `backend/`):
 ```powershell
 uv sync --locked                                                        # install exactly from uv.lock
 uv run --locked --no-sync uvicorn app.main:create_app --factory --reload --port 8000
-uv run --locked --no-sync ruff check app                                # lint
+uv run --locked --no-sync ruff check app scripts ../playground          # lint
+uv run --locked --no-sync python -m scripts.generate_samples           # rebuild samples + manifest
+uv run --locked --no-sync python -m scripts.check_gemini               # 1 API call
+uv run --locked --no-sync python ../playground/read_samples.py         # reader on all samples
+uv run --locked --no-sync python ../playground/extract_samples.py all  # cached; --fresh = 1 call/doc
 ```
 
 Frontend (run from `frontend/`):

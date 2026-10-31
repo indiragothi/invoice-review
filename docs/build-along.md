@@ -91,3 +91,34 @@ Important locations: `backend/app/clients.py`, `backend/scripts/generate_samples
 - **Checkpoint:** All 12 samples show `-` in the missing column; boxes in the debug images sit on the printed words. First OCR call takes a few extra seconds to load the model.
 
 Important locations: `backend/app/reader/__init__.py` (`read_document`), `reader/render.py` (magic-byte type check, 150 DPI rendering, EXIF-aware image loading), `reader/pdf_text.py`, `reader/ocr.py` (character grouping, weakest-character confidence), `reader/schemas.py`. See decision D13.
+
+### Slice 5: First LLM extraction with evidence word IDs  (milestone M1)
+
+- **Outcome:** `app/providers` calls Gemini (`gemini-3.5-flash-lite`) through pydantic-ai with a strict schema (`app/schemas/extraction.py`) and a versioned prompt (`providers/prompts/extract_v1.md`). One call classifies the document and returns every field as printed, each with the IDs of the words it came from. Tax rows come back one per head and rate; code adds them up.
+- **Why:** This is reading A, the core of the pipeline. Evidence IDs are what make provenance and hallucination checks possible.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync python -m scripts.check_gemini                      # 1 API call
+  uv run --locked --no-sync python ../playground/extract_samples.py 1 --show    # 1 call, prints JSON
+  uv run --locked --no-sync python ../playground/extract_samples.py all         # 1 call per uncached doc
+  ```
+
+  Outputs are cached in `playground/output/extract/`; add `--fresh` to call the model again.
+
+- **Result (2026-10-31, all 12 samples, prompt `extract_v1`):** type 12/12, fields 154/158 (97.5 %), values contained in their cited words 482/489. About 4,000 input tokens and 3 s per one-page document; the 34-line two-page invoice took 8.6k + 6k tokens and 12.5 s.
+- **Checkpoint:** `check_gemini` prints `OK: structured output works.`; `extract_samples.py 1` shows `fields 14/14`.
+
+What went wrong, and where it will be handled:
+
+| Sample | Problem | Handled in |
+|---|---|---|
+| 02 | Vendor name took the next word of the address ("... Grains Shop") | Second reading / review; prompt v2 |
+| 04 | Place of supply returned as "Karnataka" without "(29)" | Normalisation: map state names to codes (M2) |
+| 08, 09 | Correct value, but evidence ID off by one word on 7 values | Grounding: search the cited line before flagging (M2) |
+| 10 | OCR lost spaces: "RestaurantPvtLtd" | Name comparison ignoring spaces; reviewer sees it (M2) |
+| 11 | Fuel receipt: the "Diesel 42.5 L x 92.36" row was not returned as a line item | Prompt v2: purchase rows on receipts are line items |
+
+Note: this exploratory run included test-split documents. From now on prompts are tuned on the dev split only (see `docs/evaluation.md`).
+
+Important locations: `backend/app/providers/__init__.py` (`build_model`, `format_words`, `extract`), `backend/app/schemas/extraction.py`, `backend/app/providers/prompts/extract_v1.md`, `backend/scripts/check_gemini.py`, `playground/extract_samples.py`.

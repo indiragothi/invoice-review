@@ -9,7 +9,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 | Milestone | Status |
 |---|---|
 | M0 Plan | ✅ Done |
-| M1 Scaffold, samples, read + extract | 🔄 In progress |
+| M1 Scaffold, samples, read + extract | ✅ Done (NVIDIA check optional, open) |
 | M2 Ground + validate | ⬜ Not started |
 | M3 Pipeline + API | ⬜ Not started |
 | M4 Review UI | ⬜ Not started |
@@ -74,18 +74,22 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [x] *(you)* Run `playground/read_samples.py` and look at a few debug images
 
 ### Provider checks
-- [ ] `scripts/check_gemini.py`: one structured pydantic-ai call works
-- [ ] `scripts/check_nvidia.py`: same against the NVIDIA endpoint
-- [ ] `providers/prompts/extract_v1.md`: classify + extract + evidence word IDs, document text delimited as data
-- [ ] `playground/` extraction on one sample prints JSON fields with evidence IDs
-- [ ] Update `build-along.md` and the Commands section of `CLAUDE.md`
-- [ ] **M1 exit:** one sample → words with boxes → fields with evidence IDs in the console
+- [x] `scripts/check_gemini.py`: one structured pydantic-ai call works
+- [ ] `scripts/check_nvidia.py`: same against the NVIDIA endpoint *(needs an NVIDIA key; optional, can move to M5)*
+- [x] `providers/prompts/extract_v1.md`: classify + extract + evidence word IDs, document text delimited as data
+- [x] `playground/extract_samples.py` prints JSON fields with evidence IDs and scores all 12 samples (154/158 fields)
+- [x] Update `build-along.md` and the Commands section of `CLAUDE.md`
+- [x] **M1 exit:** one sample → words with boxes → fields with evidence IDs in the console
+- [x] *(you)* Run `extract_samples.py 1 --show` and read the output
 
 ## M2 Ground + validate
 
 - [ ] Pydantic models: invoice, receipt, line item, field-with-evidence, `ValidationIssue`
 - [ ] Grounding: value must appear in cited words; box = union of word boxes; `ungrounded` otherwise
+- [ ] Grounding: when cited IDs miss by a word, search the same line and re-point (seen on samples 08, 09)
 - [ ] Normalisation: Indian dates (DD-MM-YYYY, ambiguous flagged), amounts (`1,23,456.00` → `Decimal`), GSTIN upper-case
+- [ ] Normalisation: state name → state code for place of supply ("Karnataka" → 29)
+- [ ] Prompt `extract_v2` (dev split only): receipt purchase rows are line items; vendor name excludes address words
 - [ ] GSTIN: format, state code, checksum, one-character fix suggestion
 - [ ] Tax: intra vs inter-state split, total and line-item sums with ₹1 tolerance, dated slab table
 - [ ] Dates: future, old invoice, financial year
