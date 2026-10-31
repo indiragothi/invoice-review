@@ -5,7 +5,8 @@ These rules are plain, testable Python in one pure module (`backend/app/validati
 - Money is compared as `Decimal`, never `float`. Rounding tolerance is **₹1.00** unless stated.
 - Dates on Indian bills are read as **DD-MM-YYYY** first. An ambiguous date (e.g. 04/05/2025) is never silently guessed: it gets `AMBIGUOUS_DATE` unless the layout or other dates settle it.
 - Financial year runs **1 April – 31 March**.
-- Every document is uploaded **for a client** (the firm's customer), who has a name, GSTIN and state code.
+- Every document is uploaded **for a client** (the firm's customer), who has a name, GSTIN and state code. Clients are a fixed list in configuration.
+- Issue codes are `snake_case` in code (e.g. `total_mismatch`); they are written in capitals here for readability.
 
 ## Document types
 
@@ -85,6 +86,38 @@ Rate slabs changed with the GST rate rationalisation effective **22 September 20
 
 Slabs live in a dated config table (`validation/tax_slabs.py`), not in code branches. **Verify the table against official CBIC notifications before relying on it.** A mismatch only raises a warning, because transition-period bills and special items are common.
 
+## Ledger (accounting head)
+
+Like the GL account in the reference build. The catalog is fixed in `backend/app/accounting/catalog.py`; the LLM may only pick a code from it, using normalised fields (never the raw file).
+
+| Code | Ledger | Typical bills |
+|---|---|---|
+| `1500` | Fixed assets | Computers, machinery, furniture |
+| `5100` | Purchase of goods | Stock-in-trade bought for resale |
+| `5110` | Raw material and consumables | Inputs used in production / service |
+| `6100` | Rent | Shop, office, warehouse rent |
+| `6110` | Electricity and water | Utility bills |
+| `6120` | Telephone and internet | Mobile, broadband |
+| `6130` | Fuel and vehicle running | Petrol, diesel, vehicle service |
+| `6140` | Repairs and maintenance | Building, equipment repairs |
+| `6150` | Printing and stationery | Office supplies |
+| `6160` | Professional and legal fees | CA, lawyer, consultant |
+| `6170` | Travel and conveyance | Taxi, train, flight, hotel |
+| `6180` | Staff welfare and food | Meals, refreshments |
+| `6190` | Miscellaneous expenses | Anything else |
+
+**Approval requires a valid selected ledger.** The suggestion is shown with a one-line reason; Priya confirms or overrides it. An override is recorded.
+
+## Correction requests
+
+When Priya rejects an invoice for a mistake the **supplier** can fix, the app can draft (never send) an email asking for a corrected invoice or credit note. Eligibility is a fixed set of codes in `backend/app/correction_email/eligibility.py`, not a model decision:
+
+`MISSING_VENDOR_GSTIN`, `INVALID_VENDOR_GSTIN`, `INVALID_BUYER_GSTIN`, `BUYER_NOT_CLIENT`, `MISSING_BUYER_GSTIN`, `MISSING_INVOICE_NUMBER`, `INVOICE_NUMBER_TOO_LONG`, `MISSING_INVOICE_DATE`, `MISSING_TOTAL`, `LINE_ITEMS_SUM_MISMATCH`, `TOTAL_MISMATCH`, `TAX_SPLIT_INCONSISTENT`, `MISSING_HSN_SAC`, `AMOUNT_IN_WORDS_MISMATCH`.
+
+Not eligible (our problem, not the supplier's): `UNGROUNDED_REQUIRED_FIELD`, `AMBIGUOUS_DATE`, `LOW_CONFIDENCE_FIELD`, `READINGS_DISAGREE`, duplicates.
+
+The draft uses normalised fields and the eligible issues only, not the source file. Priya copies it into her own email client.
+
 ## Review status
 
 | Status | Condition |
@@ -97,7 +130,7 @@ Slabs live in a dated config table (`validation/tax_slabs.py`), not in code bran
 
 ### Invariants
 
-1. A record with an open blocking error can never become `approved`. Enforced in the service layer (`409 Conflict`), not only in the UI.
+1. A record with an open blocking error, or without a valid selected ledger, can never become `approved`. Enforced in the service layer (`409 Conflict`), not only in the UI.
 2. Editing a field sets its source to `human`, sets confidence to 1.0, clears its low-confidence / disagreement warnings, and re-runs every rule.
 3. A decided record is immutable.
 4. Nothing is exported unless it is `approved`.

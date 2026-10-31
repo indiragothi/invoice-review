@@ -2,9 +2,11 @@
 
 ## The firm
 
-**Mehta & Associates, Chartered Accountants** is a (fictional) small CA firm in India. It handles GST filing and bookkeeping for about 60 small clients: traders, restaurants, clinics, workshops.
+**Mehta & Associates, Chartered Accountants** is a (fictional) small CA firm in India. It handles GST filing and bookkeeping for small clients: traders, restaurants, clinics, workshops.
 
 Every month each client sends a bundle of purchase and expense documents: GST tax invoices, supplier bills, shop receipts, fuel slips. They arrive as digital PDFs, scans, WhatsApp photos and screenshots, mostly in English, sometimes with Hindi text.
+
+All product copy, source code and documentation are in English. Only the sample bills vary.
 
 ## The user
 
@@ -15,6 +17,8 @@ Every month each client sends a bundle of purchase and expense documents: GST ta
 3. Check the arithmetic, the GSTIN, and the CGST / SGST / IGST split, because a wrong GSTIN or tax split puts the client's input tax credit (ITC) at risk.
 4. Check the bill is actually addressed to the client (buyer GSTIN = client GSTIN).
 5. Notice duplicates (the same bill sent twice, once as a photo and once as a PDF).
+6. Post it to the right ledger (Rent, Fuel, Purchase, Repairs ...).
+7. When the supplier made a mistake, write to them asking for a corrected invoice.
 
 It is repetitive and error-prone, and one typo can cost a client money.
 
@@ -24,7 +28,7 @@ It is repetitive and error-prone, and one typo can cost a client money.
 
 ## User story
 
-> As an accounts executive, I want every uploaded bill to arrive as a **prepared review**: extracted fields, validation results, and the exact place on the page each value came from. Then I can approve the clean ones quickly and spend my time only on the ones that need a human.
+> As an accounts executive at a CA firm, I want to upload a client's invoice or receipt and receive a prepared review: the best combined extraction, GST and policy results, the place on the page each value came from, and a suggested ledger. Then I can approve valid documents quickly and turn supplier errors into a clear correction request.
 
 ## Core requirement
 
@@ -32,31 +36,43 @@ The app **reads, checks and suggests. It does not decide.** Priya makes the fina
 
 > Models extract evidence. Code decides policy. The human owns the decision.
 
-## What is in v1
+## What's included in the build
 
-- Pick a client, then upload one PDF or image per document (max 5 MB, max 5 pages; JPG, PNG, PDF).
-- Classify the document as `invoice` or `receipt`.
-- Extract into a fixed structure: vendor, vendor GSTIN, buyer, buyer GSTIN, invoice number, date, place of supply, line items (description, HSN/SAC, qty, rate, taxable amount, GST rate), taxable value, CGST / SGST / IGST, cess, round-off, total.
-- Validate with deterministic Python (see [policy-rules.md](policy-rules.md)): GSTIN format and checksum, buyer = client, arithmetic, tax split, dates, duplicates.
-- Give every field a confidence and a **source** (which words on the page, which reading, or human).
-- Route anything with errors or low confidence to a **review screen** instead of saving it.
-- Review screen: page on one side with the source box highlighted, editable fields on the other. Clicking a field highlights its box; clicking a box selects its field.
-- Priya can correct fields, approve, or reject. Corrections re-run validation. Clean (`ready`) documents can be approved in bulk.
-- Export approved records to CSV / Excel (one row per document and one sheet of line items).
-- Review history (audit log), with explicit delete so demos can be reset.
-- A ground-truth sample set (36+ documents) and an evaluation script reporting field-level accuracy.
+This mirrors the scope of the reference build ([e2e-invoice-review](https://github.com/daveebbelaar/e2e-invoice-review)), with free providers instead of Azure and Indian GST instead of EU VAT.
+
+| Reference build (Azure, EU) | This build (free, India) |
+|---|---|
+| One PDF / image per upload, 4 MB | Same, 5 MB, max 5 pages |
+| Invoice / receipt recognition (Azure OpenAI) | Same, Gemini via pydantic-ai |
+| Document Intelligence prebuilt extraction (primary) | PDF text layer / RapidOCR words + LLM extraction with evidence word IDs (primary reading) |
+| Independent Azure OpenAI extraction, merge fills gaps | Independent vision reading, merge fills gaps; agree / differ shown |
+| Field provenance | Same, **plus a highlighted box on the page for every value** |
+| EU VAT format / checksum (offline) | GSTIN format / checksum (offline), buyer = client, CGST/SGST/IGST split |
+| Separate invoice and receipt policies, duplicate detection | Same, plus line items must add up |
+| Fixed GL catalog + LLM suggestion, reviewer can override | Fixed **ledger catalog** (Tally-style heads) + LLM suggestion, Priya can override |
+| Corrections, approve, reject | Same, plus bulk-approve of clean documents |
+| Correction-email draft, never sent | Same: "please issue a corrected invoice / credit note" |
+| SQLite, local files, welcome → upload → process → review flow | Same |
+| Review history with explicit delete | Same |
+| 13-document corpus | 36+ documents with a dev / test split (roadmap asks for 30+) |
+| Shared-password gate for the deployed demo | Same |
+| — | Export approved records to CSV / Excel |
+
+### Clients
+
+The firm works *for* clients, so every upload is tagged with one. In v1 the clients are a small fixed list in configuration (name, GSTIN, state), like Northstar is fixed in the reference build. There is no client management screen.
 
 ## Stretch (after v1 works)
 
 - Hindi + English bills.
 - Handwritten receipts.
 - Tally-friendly import format.
-- **GSTR-2B reconciliation:** match approved purchase invoices against the client's GSTR-2B JSON and list missing / mismatched ones. This is the single most valuable next feature for a CA firm.
+- **GSTR-2B reconciliation:** match approved purchase invoices against the client's GSTR-2B JSON and list missing / mismatched ones. The most valuable next feature for a CA firm.
 - Run both providers on every document and compare.
 
 ## Out of scope
 
-Login and multiple users, multi-firm tenancy, email or WhatsApp ingestion, queues and workers, GST portal / e-invoice (IRN) verification, live GSTIN status lookup, ITC eligibility decisions (e.g. blocked credits), payments, filing returns, and any tax advice. This is a portfolio-grade pipeline, not a production accounting product.
+User accounts and roles (only one shared demo password), client management, multi-firm tenancy, email or WhatsApp ingestion, sending email, queues and workers, GST portal / e-invoice (IRN) verification, live GSTIN status lookup, ITC eligibility decisions (e.g. blocked credits), accounting-software integration beyond file export, payments, filing returns, and any tax advice. This is a portfolio-grade pipeline, not a production accounting product.
 
 ## Success criteria
 

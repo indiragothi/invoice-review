@@ -1,58 +1,57 @@
 # Tech Stack
 
-Constraint: **no paid or card-verified cloud account.** Everything runs locally or on free-tier APIs. The reasons behind each choice are in [decisions.md](decisions.md).
+Same stack as the reference build, except the provider layer: Azure Document Intelligence + Azure OpenAI are replaced by local reading (PyMuPDF, RapidOCR) and free-tier LLMs (Gemini, NVIDIA) through pydantic-ai. Reasons are in [decisions.md](decisions.md).
+
+Constraint: **no paid or card-verified cloud account.**
 
 ## Stack
 
-| Area | Choice | Role |
+| Area | Reference build | This build |
 |---|---|---|
-| Language / env | Python 3.12, `uv` | Reproducible, locked installs |
-| API | FastAPI + Pydantic v2 | Typed routes; Pydantic models double as LLM output schemas |
-| Database | SQLite via SQLAlchemy 2 | Zero setup |
-| PDF handling | PyMuPDF | Page rendering and native text layer with word boxes |
-| OCR | RapidOCR (onnxruntime) | Word boxes + confidence for scans / photos; local, light on Windows |
-| Primary LLM | Gemini via `google-genai` | Classify + extract with structured JSON; vision for reading B |
-| Secondary LLM | NVIDIA hosted models via `openai` SDK (OpenAI-compatible endpoint) | Second opinion and fallback |
-| GSTIN | `python-stdnum` (`in.gstin`) | Offline format + checksum |
-| Retries | small local helper (exponential backoff) | Free-tier rate limits |
-| Export | `csv` (stdlib), `openpyxl` | CSV / Excel |
-| Frontend | Vite, React, TypeScript (strict), Tailwind CSS, pnpm | Page viewer with highlight overlay |
-| PDF in browser | Page images rendered by the backend | Avoids a PDF.js dependency; boxes map 1:1 to image pixels |
-| Backend checks | Ruff, pytest (pure modules only) | |
-| Frontend checks | `tsc`, ESLint, `vite build` | |
-| Container / deploy | Docker; a free-tier host (Render / Railway / Fly.io / Hugging Face Spaces) | Decided in milestone M6 |
+| Language / env | Python 3.12, uv | Same |
+| API | FastAPI, uvicorn, python-multipart | Same |
+| Models / settings | Pydantic v2, pydantic-settings | Same |
+| Database | SQLAlchemy 2, SQLite | Same |
+| Document reading | Azure Document Intelligence | **PyMuPDF** (text layer, page images) + **RapidOCR** (onnxruntime) for scans / photos |
+| LLM calls | pydantic-ai + openai SDK → Azure OpenAI | **pydantic-ai** → **Gemini** (primary) and **NVIDIA** OpenAI-compatible endpoint (secondary) |
+| Tax ID checks | `python-stdnum` (EU VAT) | `python-stdnum` (`in.gstin`) |
+| Export | — | `csv` (stdlib), `openpyxl` |
+| Sample generation (dev) | reportlab, pillow | Same |
+| Backend checks | Ruff | Ruff + **pytest** for pure modules (see D6) |
+| Frontend | Vite, React, TypeScript strict, Tailwind CSS v4, pnpm, ESLint | Same |
+| HTTP in browser | native `fetch` | Same |
+| Container | One Docker image: built SPA + FastAPI | Same |
+| Hosting | Azure Container Apps | A free host (Render / Railway / Fly.io / Hugging Face Spaces), decided in M6 |
 
-## Open items to confirm in `playground/` before building on them
+Exact versions are pinned when the projects are created in M1 (`uv.lock`, `pnpm-lock.yaml`), not written here.
 
-| Item | How we decide |
-|---|---|
-| Exact Gemini / NVIDIA model names and current free limits | Check provider docs on the day; keep names in `.env`, never hard-code |
-| RapidOCR quality on phone photos | Run on 5 degraded samples; compare with docTR if poor |
-| Is reading B worth an extra call? | Evaluation experiment "A only vs A+B" |
-| Free host for deployment | Must fit OCR model size and memory |
+## Dependency policy (copied from the reference build)
+
+- Pin direct dependencies exactly; commit lockfiles.
+- Backend `pyproject.toml`: `[tool.uv] add-bounds = "exact"` and `exclude-newer = "7 days"` (no package newer than a week: supply-chain safety).
+- Frontend `pnpm-workspace.yaml`: `savePrefix: ""`, `minimumReleaseAge: 10080`, `minimumReleaseAgeStrict: true`.
+- Install with `uv sync --locked` and `pnpm install --frozen-lockfile`; run with `uv run --locked --no-sync`.
+- Ask the owner before adding any dependency; prefer a small local function.
 
 ## Provider interface
 
+pydantic-ai agents live in `backend/app/providers/`. The pipeline calls our own functions, never pydantic-ai directly:
+
 ```python
-class LLMProvider(Protocol):
-    name: str
-
-    def read_text(self, doc: ReadDocument, prompt: PromptVersion) -> ReadingA:
-        """Classify + extract from numbered words. Returns values with evidence word IDs."""
-
-    def read_image(self, doc: ReadDocument, doc_type: DocType, prompt: PromptVersion) -> ReadingB:
-        """Independent extraction from page images."""
+def extract(doc: ReadDocument, settings: Settings) -> ExtractionResult: ...   # classify + fields + evidence IDs
+def review_from_images(doc: ReadDocument, doc_type: DocType, settings: Settings) -> SecondReading: ...
+def suggest_ledger(fields: ReviewData, catalog: list[Ledger], settings: Settings) -> LedgerSuggestion: ...
+def draft_correction_email(fields: ReviewData, issues: list[ValidationIssue], settings: Settings) -> EmailDraft: ...
 ```
 
-Switching provider is one setting (`LLM_PROVIDER=gemini|nvidia`). Prompts live in `providers/prompts/` as versioned files (`read_text_v1.md`), and the version is stored with every run so evaluation results stay comparable.
+Provider choice is one setting (`LLM_PROVIDER=gemini|nvidia`). Prompts are versioned files in `providers/prompts/`, and the version is stored with every run.
 
-## Free-tier cautions
+## Open items to confirm in `playground/`
 
-- Limits change and are low. Retry with backoff, then mark the document `failed` with a clear "provider busy, retry" message.
-- Cache readings by file hash so re-runs and evaluation do not burn quota.
-- Free tiers may use prompts for training. Only fictional, synthetic or redacted documents are sent.
-- Keys live in `backend/.env`, never in git.
-
-## Dependency policy
-
-Pin direct dependencies exactly and commit lockfiles. Prefer a small local function over a new package. Ask the owner before adding a dependency.
+| Item | How we decide |
+|---|---|
+| Gemini / NVIDIA model names and current free limits | Provider docs on the day → [free-tier-limits.md](free-tier-limits.md) |
+| pydantic-ai support for both providers' structured output and image input | `scripts/check_gemini.py`, `scripts/check_nvidia.py` |
+| RapidOCR quality on phone photos | Run on degraded samples; compare with docTR if poor |
+| Is the second reading worth an extra call? | Evaluation experiment |
+| Free host that fits the OCR model and memory | M6 |

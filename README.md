@@ -13,7 +13,8 @@ flowchart LR
     A["Bill<br/>PDF / photo"] --> B["Words + boxes<br/>PDF text / OCR"]
     B --> C["LLM extracts fields<br/>+ evidence word IDs"]
     C --> D["Code verifies,<br/>normalises, validates"]
-    D --> E{"Clean?"}
+    D --> L["LLM suggests ledger<br/>from fixed catalog"]
+    L --> E{"Clean?"}
     E -- yes --> F["ready<br/>one-click approve"]
     E -- no --> G["needs_review<br/>human fixes"]
     F --> H["Excel / CSV"]
@@ -34,14 +35,16 @@ flowchart LR
 | [Client brief](docs/client-brief.md) | Who it is for, the problem, scope |
 | [Policy rules](docs/policy-rules.md) | GST validation rules, statuses, confidence |
 | [Architecture](docs/architecture.md) | Diagrams: components, pipeline, request flow, lifecycle, data model |
-| [Tech stack](docs/tech-stack.md) | Tools and open items |
+| [API and pipeline](docs/api-and-pipeline.md) | Endpoints, response shape, status codes, pipeline steps |
+| [Tech stack](docs/tech-stack.md) | Tools compared with the reference build |
+| [Free-tier limits](docs/free-tier-limits.md) | API calls per document, quotas, behaviour at the limit |
 | [Decisions](docs/decisions.md) | Why each major choice was made |
 | [Evaluation](docs/evaluation.md) | Corpus, metrics, experiments |
 | [Security](docs/security.md) | Threats and checklist |
 | [Roadmap](docs/roadmap.md) | Milestones and exit criteria |
 | [Build-along](docs/build-along.md) | Step-by-step build log |
 
-Working with Claude Code: project rules are in [CLAUDE.md](CLAUDE.md).
+Working with Claude Code: project rules are in [CLAUDE.md](CLAUDE.md), with [backend](backend/CLAUDE.md) and [frontend](frontend/CLAUDE.md) additions.
 
 ## Prerequisites
 
