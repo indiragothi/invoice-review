@@ -54,7 +54,17 @@ uv run --locked --no-sync uvicorn app.main:create_app --factory --reload --port 
 uv run --locked --no-sync ruff check app                                # lint
 ```
 
-Frontend commands are added when the frontend project is created. Keep this section current.
+Frontend (run from `frontend/`):
+
+```powershell
+pnpm install --frozen-lockfile
+pnpm dev                              # http://localhost:5173
+pnpm exec tsc -b --pretty false       # type-check
+pnpm lint
+pnpm build
+```
+
+Keep this section current.
 
 ## Architecture rules
 

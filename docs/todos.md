@@ -51,11 +51,12 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [x] *(you)* Run the server yourself and open http://localhost:8000/health
 
 ### Frontend scaffold
-- [ ] Propose exact frontend dependency versions and get approval
-- [ ] Vite + React + TS strict + Tailwind + ESLint project, `pnpm-workspace.yaml` cooldown settings
-- [ ] `pnpm install` → commit `pnpm-lock.yaml`
-- [ ] `src/lib/env.ts` validating `VITE_API_BASE_URL`
-- [ ] Verify: `tsc`, `lint`, `build` pass; page loads and shows backend health
+- [x] Propose frontend dependencies and get approval
+- [x] Vite + React + TS strict + Tailwind + ESLint project, `pnpm-workspace.yaml` cooldown settings
+- [x] `pnpm install` → `pnpm-lock.yaml` (no peer dependency issues)
+- [x] `src/lib/env.ts` validating `VITE_API_BASE_URL`
+- [x] Verify: `tsc`, `lint`, `build` pass; page loads; backend CORS allows `localhost:5173`
+- [x] *(you)* Open http://localhost:5173 and see the green "Backend connected" box
 
 ### Samples
 - [ ] Fixed client list (`app/clients.py`) with 2-3 fictional clients
