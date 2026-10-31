@@ -67,10 +67,11 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [x] *(you)* Open a few files in `samples/generated/` and compare with `manifest.json`
 
 ### Reader (playground first)
-- [ ] `playground/` PyMuPDF: digital PDF → words with boxes
-- [ ] `playground/` RapidOCR: image / scan → words with boxes + confidence
-- [ ] Render page images; boxes line up when drawn on the image (save a debug PNG)
-- [ ] Move proven code into `app/reader/`
+- [x] PyMuPDF: digital PDF → words with boxes
+- [x] RapidOCR: image / scan → words with boxes + confidence (character boxes grouped into words, D13)
+- [x] Render page images; boxes line up when drawn on the image (debug PNGs from `playground/read_samples.py`)
+- [x] Reader lives in `app/reader/`; key values found on all 12 samples
+- [x] *(you)* Run `playground/read_samples.py` and look at a few debug images
 
 ### Provider checks
 - [ ] `scripts/check_gemini.py`: one structured pydantic-ai call works

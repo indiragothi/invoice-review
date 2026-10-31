@@ -71,3 +71,9 @@ The reference build is Dave Ebbelaar's [e2e-invoice-review](https://github.com/d
 **Context:** The reference build has one fixed customer (Northstar). A CA firm has many clients, but client management is not the point of the project.
 **Decision:** A small fixed client list in `backend/app/clients.py`. No client CRUD.
 **Consequence:** `BUYER_NOT_CLIENT` works; adding a client is a code change.
+
+## D13. OCR words come from character boxes; confidence is the weakest character
+
+**Context:** RapidOCR returns text lines without spaces. With `return_word_box=True` it also returns a box and confidence per character. Character boxes are approximate, so a word is occasionally split in the wrong place (e.g. `GSTIN: 27Q` + `WRCA7310M1ZK` on the degraded scan), and a few lines come back without character detail.
+**Decision:** Group characters into words by horizontal gap (> 0.45 × median character width); fall back to the whole line as one word when character detail is missing. A word's confidence is its lowest character confidence. Grounding must accept a value that spans several adjacent cited words (compare the joined text).
+**Consequence:** One doubtful character (the `O` in a GSTIN) makes the whole value doubtful, which is what review needs. Low-confidence thresholds must be tuned on OCR documents in M5; PDF text-layer words are always 1.0.

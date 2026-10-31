@@ -76,3 +76,18 @@ Important locations (slice 2): `frontend/pnpm-workspace.yaml` (exact saves, 7-da
 - **Checkpoint:** Open a few files: totals, CGST/SGST vs IGST, round off and amount-in-words agree with `manifest.json`. `ruff check app scripts` passes.
 
 Important locations: `backend/app/clients.py`, `backend/scripts/generate_samples.py` (`build_corpus()` defines every document; `check()` asserts each scenario), `samples/README.md` (what each file tests).
+
+### Slice 4: Reader: words with boxes from PDFs, scans and photos  (milestone M1)
+
+- **Outcome:** `app/reader` turns any upload into page images plus numbered words (`w1`, `w2` ...) with page, line, box and confidence. Digital PDF pages use the text layer (PyMuPDF, confidence 1.0); scans, photos and image-only PDF pages use RapidOCR with character-level boxes.
+- **Why:** This is the evidence layer. The LLM will cite word IDs, and code will use these boxes to highlight where each value came from. Its quality caps the accuracy of everything after it.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync python ../playground/read_samples.py
+  ```
+
+- **Result:** One line per sample: text source, word count, lowest confidence, seconds, and any key value (GSTINs, invoice number, total) not found in the read text. Debug images with every box drawn are written to `playground/output/` (green = PDF text, orange = OCR, red = OCR confidence below 0.90).
+- **Checkpoint:** All 12 samples show `-` in the missing column; boxes in the debug images sit on the printed words. First OCR call takes a few extra seconds to load the model.
+
+Important locations: `backend/app/reader/__init__.py` (`read_document`), `reader/render.py` (magic-byte type check, 150 DPI rendering, EXIF-aware image loading), `reader/pdf_text.py`, `reader/ocr.py` (character grouping, weakest-character confidence), `reader/schemas.py`. See decision D13.
