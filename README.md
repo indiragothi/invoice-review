@@ -42,6 +42,7 @@ flowchart LR
 | [Evaluation](docs/evaluation.md) | Corpus, metrics, experiments |
 | [Security](docs/security.md) | Threats and checklist |
 | [Roadmap](docs/roadmap.md) | Milestones and exit criteria |
+| [Todos](docs/todos.md) | Step-by-step checklist and progress |
 | [Build-along](docs/build-along.md) | Step-by-step build log |
 
 Working with Claude Code: project rules are in [CLAUDE.md](CLAUDE.md), with [backend](backend/CLAUDE.md) and [frontend](frontend/CLAUDE.md) additions.

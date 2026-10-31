@@ -18,6 +18,7 @@ The structural reference is Dave Ebbelaar's [e2e-invoice-review](https://github.
 | `docs/decisions.md` | Before proposing a different approach |
 | `docs/free-tier-limits.md` | Before running anything that calls an LLM |
 | `docs/security.md` | Uploads, providers, auth, export, deployment |
+| `docs/todos.md` | Next step to work on |
 | `docs/build-along.md` | What is already built |
 
 ## Branches
@@ -30,6 +31,7 @@ The structural reference is Dave Ebbelaar's [e2e-invoice-review](https://github.
 - Work in **small slices** that each end in something observable. Follow `docs/roadmap.md`; do not jump milestones.
 - Prove new provider / OCR code in `playground/` or `backend/scripts/check_*.py` first, then move it into `backend/app/`.
 - Every slice updates `docs/build-along.md` in the same commit (outcome, why, commands, result, checkpoint).
+- Tick finished steps in `docs/todos.md` (and the milestone status table) in the same commit. Tick only what was actually done and verified.
 - Keep `docs/api-and-pipeline.md` in sync with the routes.
 - If a change contradicts a doc, stop and ask, or propose a new entry in `docs/decisions.md`.
 - Commit only when the owner asks.
