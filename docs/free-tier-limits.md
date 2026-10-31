@@ -21,8 +21,11 @@ Free-tier limits change often. **Check the provider pages on the day you start a
 
 | Provider | Model | Requests / minute | Requests / day | Tokens / minute | Checked on |
 |---|---|---|---|---|---|
-| Gemini (AI Studio free tier) | | | | | |
+| Gemini (AI Studio free tier) | **`gemini-3.5-flash-lite`** (chosen) | 15 | 500 | 250K | 2026-10-31 |
+| Gemini (AI Studio free tier) | `gemini-3.8-flash` | 5 | 20 | 250K | 2026-10-31 |
 | NVIDIA (build.nvidia.com) | | | | | |
+
+Source: the owner's AI Studio rate-limit page (limits are per project; daily quota resets at midnight Pacific time). Model list and free-tier availability checked on Google's models and pricing pages the same day. `gemini-4-argon` has no free tier; `gemini-2.5-*` is closed to new users.
 
 ## Capacity
 
@@ -30,7 +33,12 @@ Free-tier limits change often. **Check the provider pages on the day you start a
 documents per day ≈ requests per day ÷ calls per document
 ```
 
-Fill in once the table above is known. If the daily limit is the bottleneck, set `SECOND_READING=on_doubt` (default) and switch extra load to the NVIDIA provider.
+| Model | Calls / document | Documents / day | One 36-document evaluation |
+|---|---|---|---|
+| `gemini-3.5-flash-lite` | 2-3 | ~165-250 | fits easily (~72-108 calls) |
+| `gemini-3.8-flash` | 2-3 | ~6-10 | does not fit in one day |
+
+**Decision:** `gemini-3.5-flash-lite` is the default model. `gemini-3.8-flash` may be tried later for the second reading only, if the evaluation shows Flash-Lite is too weak. At 15 requests per minute, a burst of uploads needs the retry-with-backoff path.
 
 ## Behaviour at the limit
 

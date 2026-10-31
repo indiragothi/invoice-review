@@ -9,7 +9,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 | Milestone | Status |
 |---|---|
 | M0 Plan | ✅ Done |
-| M1 Scaffold, samples, read + extract | ⬜ Not started |
+| M1 Scaffold, samples, read + extract | 🔄 In progress |
 | M2 Ground + validate | ⬜ Not started |
 | M3 Pipeline + API | ⬜ Not started |
 | M4 Review UI | ⬜ Not started |
@@ -30,21 +30,21 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [x] Tech stack, free-tier limits, decisions, security, evaluation, roadmap
 - [x] `CLAUDE.md` (root, backend, frontend)
 - [x] `git init`, `main` + `development` branches, pushed to GitHub
-- [ ] *(you)* Check that the Mermaid diagrams render on GitHub
+- [x] *(you)* Check that the Mermaid diagrams render on GitHub
 
 ## M1 Scaffold, samples, read + extract (`development`)
 
 ### Accounts and keys
-- [ ] *(you)* Create a free Gemini API key at https://aistudio.google.com/apikey
+- [x] *(you)* Create a free Gemini API key at https://aistudio.google.com/apikey
 - [ ] *(you)* Optional: create an NVIDIA API key at https://build.nvidia.com
-- [ ] Fill in the provider table in `free-tier-limits.md` (models, limits, date checked)
+- [x] Fill in the Gemini rows of `free-tier-limits.md` (model chosen: `gemini-3.5-flash-lite`)
 
 ### Backend scaffold
 - [ ] Propose exact backend dependency versions and get approval
 - [ ] `backend/pyproject.toml` with exact pins, `add-bounds = "exact"`, `exclude-newer = "7 days"`, Ruff config
 - [ ] `uv sync` → commit `uv.lock`
 - [ ] `app/config.py` (pydantic-settings, reads `backend/.env`, fails clearly on missing keys)
-- [ ] *(you)* Copy `backend/.env.example` to `backend/.env` and paste the key
+- [x] *(you)* Copy `backend/.env.example` to `backend/.env` and paste the key
 - [ ] `app/main.py` with `create_app()` and `GET /health`
 - [ ] Verify: `uvicorn` starts and `/health` returns OK; `ruff check` passes
 
