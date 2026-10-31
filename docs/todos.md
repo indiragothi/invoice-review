@@ -96,7 +96,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [x] Invoice rules (all blocking errors and warnings in `policy-rules.md`)
 - [x] Receipt rules
 - [x] Amount-in-words check (lakh / crore)
-- [ ] Duplicate key (vendor GSTIN + invoice number + financial year)
+- [x] Duplicate key (vendor GSTIN + invoice number + financial year)
 - [ ] Status from issues (`ready` / `needs_review`)
 - [ ] pytest for all of the above; `ruff` clean
 - [ ] Update `build-along.md`

@@ -1,10 +1,10 @@
 """Receipt rules (docs/policy-rules.md). Pure: everything comes in as arguments.
 
 Receipts need fewer fields than invoices: no invoice number, no buyer GSTIN, GST may be absent.
-Not here by design: duplicates (need existing records) and the two-reading and same-file
-warnings (pipeline).
+Not here by design: the two-reading and same-file warnings (pipeline).
 """
 
+from collections.abc import Mapping
 from datetime import date
 
 from app.config import APP_CONFIG
@@ -12,6 +12,7 @@ from app.schemas.documents import Receipt
 from app.schemas.fields import GroundedField
 from app.schemas.issues import IssueCode, ValidationIssue, make_issue
 from app.validation import tax
+from app.validation.duplicates import ReceiptKey, receipt_duplicate_issue
 from app.validation.shared import (
     date_issues,
     gstin_issue,
@@ -28,7 +29,9 @@ def validate_receipt(
     fields: dict[str, GroundedField],
     today: date,
     threshold: float = APP_CONFIG.confidence_threshold,
+    existing: Mapping[str, ReceiptKey] | None = None,
 ) -> list[ValidationIssue]:
+    """All receipt rules. `existing` = keys of this client's other documents (see duplicates)."""
     issues: list[ValidationIssue] = []
 
     if not receipt.merchant_name:
@@ -76,6 +79,9 @@ def validate_receipt(
         )
 
     required = REQUIRED_FIELDS + (("vendor_gstin",) if receipt.vendor_gstin else ())
+    if duplicate := receipt_duplicate_issue(receipt, existing or {}):
+        issues.append(duplicate)
+
     issues += ungrounded_issues(fields, required)
     issues += low_confidence_issues(fields, required, threshold)
     return issues

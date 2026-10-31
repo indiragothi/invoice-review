@@ -21,6 +21,7 @@ from app.pipeline.grounding import ground_extraction  # noqa: E402
 from app.reader import read_document  # noqa: E402
 from app.schemas.extraction import Extraction  # noqa: E402
 from app.schemas.issues import Severity  # noqa: E402
+from app.validation.duplicates import invoice_key, receipt_key  # noqa: E402
 from app.validation.invoice import validate_invoice  # noqa: E402
 from app.validation.receipt import validate_receipt  # noqa: E402
 
@@ -49,6 +50,7 @@ IMPLEMENTED = {
 def main() -> None:
     manifest = json.loads((APP_CONFIG.samples_dir / "manifest.json").read_text(encoding="utf-8"))
     agree = checked = 0
+    seen: dict[str, tuple] = {}
     for entry in manifest["documents"]:
         path = APP_CONFIG.samples_dir / entry["file"]
         cached = json.loads((CACHE / f"{path.stem}.json").read_text(encoding="utf-8"))
@@ -57,6 +59,7 @@ def main() -> None:
         if document is None:
             continue
         fields = ground_extraction(extraction, read_document(path.read_bytes()).document)
+        seen[path.stem] = (document, fields, CLIENTS_BY_ID[entry["client"]])
         if document.document_type == "invoice":
             client = CLIENTS_BY_ID[entry["client"]]
             issues = validate_invoice(document, fields, client, TODAY)
@@ -77,6 +80,30 @@ def main() -> None:
             if issue.suggestion:
                 print(f"      {issue.code.value}: {issue.message}")
     print(f"\nAGREE {agree}/{checked} documents")
+    check_duplicates(seen)
+
+
+def check_duplicates(seen: dict[str, tuple]) -> None:
+    """Keys must be unique across the samples; uploading any sample again must flag exactly it."""
+    keys = {
+        stem: invoice_key(doc) if doc.document_type == "invoice" else receipt_key(doc)
+        for stem, (doc, _, _) in seen.items()
+    }
+    unique = len(set(keys.values())) == len(keys) and None not in keys.values()
+    flagged = 0
+    for stem, (doc, fields, client) in seen.items():
+        same_kind = {s: k for s, k in keys.items() if type(k) is type(keys[stem])}
+        if doc.document_type == "invoice":
+            issues = validate_invoice(doc, fields, client, TODAY, existing=same_kind)
+            code = "duplicate_invoice"
+        else:
+            issues = validate_receipt(doc, fields, TODAY, existing=same_kind)
+            code = "duplicate_receipt"
+        hit = [i for i in issues if i.code.value == code]
+        flagged += len(hit) == 1 and stem in hit[0].message
+    print(
+        f"DUPLICATES keys unique: {unique}; re-upload flagged against itself: {flagged}/{len(seen)}"
+    )
 
 
 if __name__ == "__main__":

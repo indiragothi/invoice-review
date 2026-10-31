@@ -342,3 +342,27 @@ Important locations: `backend/app/validation/receipt.py`, `backend/tests/test_re
 Limits: English words only (Hindi is M7). Receipts have no amount-in-words rule in policy-rules.md. A number written in words with a typo not in the word lists is treated as unreadable, so it is not flagged either way.
 
 Important locations: `backend/app/normalisation/words.py`, `backend/app/validation/invoice.py`, `backend/tests/test_amount_in_words.py`.
+
+### Slice 16: Duplicate keys and the duplicate rules  (milestone M2)
+
+- **Outcome:** `backend/app/validation/duplicates.py`.
+  - `invoice_key(invoice)` = vendor GSTIN + invoice number + financial year. `receipt_key(receipt)` = merchant + date + total.
+  - The invoice number and merchant are compared ignoring case and punctuation (`INV/26-27/001` equals `inv-26-27-001`); leading zeros still count (`INV-001` is not `INV-1`). A receipt total compares by value (`1176` equals `1176.00`).
+  - A key is `None` until every part is known and settled: no GSTIN / number / merchant / total, or a date that is missing, unreadable or ambiguous. A half-known key would match too much.
+  - `invoice_duplicate_issue` / `receipt_duplicate_issue` take `existing: {document_id: key}` and return `DUPLICATE_INVOICE` / `DUPLICATE_RECEIPT` (blocking) naming the first matching document. `validate_invoice` and `validate_receipt` got an optional `existing` argument.
+  - `key.text` gives a stable string (`invoice|<gstin>|<number>|2026-27`, `receipt|<merchant>|<date>|<total>`).
+- **Why:** The same bill paid twice, or booked twice, is a real accounting error. The rules stay pure: the caller supplies the existing keys.
+- **For M3 (service):** pass the keys of this client's other documents, leave out the document itself and records that are rejected or failed, so a corrected re-issue of a rejected bill is not blocked. `docs/architecture.md` lists three invoice key columns (`norm_vendor_gstin`, `norm_invoice_number`, `financial_year`) and none for receipts; one `duplicate_key` string column holding `key.text` would cover both kinds. That is a schema choice for M3, not made here.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest                                  # 244 tests (19 new)
+  uv run --locked --no-sync python ../playground/rules_samples.py   # also checks duplicates on the samples
+  ```
+
+- **Result:** 244 tests pass; ruff clean. On the 12 cached samples the keys are all unique and complete, and uploading any sample again is flagged as a duplicate of exactly itself: 12/12. No API calls, no new dependencies.
+- **Checkpoint:** `rules_samples.py` ends with `DUPLICATES keys unique: True; re-upload flagged against itself: 12/12`.
+
+Risk: dropping punctuation could make two different numbers equal (`A-1/2` and `A12`). That is rare, the issue is shown with the other document's id, and the reviewer decides; the alternative (exact match) would miss the common re-typed or OCR-spaced duplicate.
+
+Important locations: `backend/app/validation/duplicates.py`, `backend/tests/test_duplicates.py`.
