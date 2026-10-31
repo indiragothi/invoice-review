@@ -184,3 +184,25 @@ Limits and notes:
 - `reverse_charge` is not extracted yet (no field in `Extraction`); it stays False.
 
 Important locations: `backend/app/normalisation/`, `backend/tests/test_normalisation.py`, `playground/normalise_samples.py`.
+
+### Slice 9: GSTIN validation with a fix suggestion  (milestone M2)
+
+- **Outcome:** `backend/app/validation/gstin.py`. `check_gstin(gstin)` returns `GstinCheck(valid, problem, suggestion)`. Problems, checked in this order: `length` (not 15), `format` (pattern, 13th character not `0`, 14th character `Z`), `state` (first two digits), `pan` (the 10-character PAN part), `checksum` (Luhn mod 36). It works offline and does not say whether the GSTIN is active.
+- **Suggestion (never applied by code):** (1) a look-alike swap `0/O`, `1/I`, `5/S`, `8/B`, only when exactly one swap makes the number valid; (2) otherwise, if only the checksum fails, the check character the first 14 characters call for. A wrong-length number gets no suggestion.
+- **Why:** `INVALID_VENDOR_GSTIN` / `INVALID_BUYER_GSTIN` need a yes / no and a reason; demo document 2 needs a "checksum fix suggested".
+- **Decision:** the state check uses our own table (`normalisation/states.py`) plus the legacy codes 25 and 28, not `python-stdnum`'s `gstin.validate`, because stdnum's list has no 38 (Ladakh), 97 or 99 and would reject those. Format, PAN and checksum still use stdnum's `pan` and `luhn`.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest      # 83 tests (19 are GSTIN)
+  ```
+
+- **Result:** 83 tests pass; ruff clean. On the 22 GSTINs in the 12 cached extractions, 21 are valid and the only failure is sample 05's vendor GSTIN `23QMRPW2963E1ZE` (`checksum`), with the suggestion `23QMRPW2963E1Z7`. No API calls, no new dependencies.
+- **Checkpoint:** `check_gstin("23QMRPW2963E1ZE")` -> `valid=False, problem='checksum', suggestion='23QMRPW2963E1Z7'`.
+
+Notes:
+- Sample 05 was made by changing only the check character, which is not an OCR look-alike, so rule (1) finds nothing there and rule (2) gives the suggestion. Seven different single-character edits would also make that number valid, so the reviewer must compare with the document; the UI should say "the check character should probably be 7".
+- Legacy codes 25 and 28 are accepted without a name in the table. Verify with the official state list together with `states.py`.
+- Whether the buyer GSTIN equals the client's (`BUYER_NOT_CLIENT`) is a plain comparison and lives with the invoice rules.
+
+Important locations: `backend/app/validation/gstin.py`, `backend/tests/test_gstin.py`.

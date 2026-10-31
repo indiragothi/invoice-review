@@ -90,7 +90,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [x] Normalisation: Indian dates (DD-MM-YYYY, ambiguous flagged), amounts (`1,23,456.00` → `Decimal`), GSTIN upper-case
 - [x] Normalisation: state name → state code for place of supply ("Karnataka" → 29)
 - [ ] Prompt `extract_v2` (dev split only): receipt purchase rows are line items; vendor name excludes address words
-- [ ] GSTIN: format, state code, checksum, one-character fix suggestion
+- [x] GSTIN: format, state code, checksum, one-character fix suggestion
 - [ ] Tax: intra vs inter-state split, total and line-item sums with ₹1 tolerance, dated slab table
 - [ ] Dates: future, old invoice, financial year
 - [ ] Invoice rules (all blocking errors and warnings in `policy-rules.md`)
