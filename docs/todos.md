@@ -10,7 +10,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 |---|---|
 | M0 Plan | ✅ Done |
 | M1 Scaffold, samples, read + extract | ✅ Done (NVIDIA check optional, open) |
-| M2 Ground + validate | 🟨 In progress |
+| M2 Ground + validate | ✅ Done (`READINGS_DISAGREE` and `DUPLICATE_FILE` move to M3) |
 | M3 Pipeline + API | ⬜ Not started |
 | M4 Review UI | ⬜ Not started |
 | M5 Evaluation | ⬜ Not started |
@@ -89,7 +89,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [x] Grounding: when cited IDs miss by a word, search the same line and re-point (seen on samples 08, 09)
 - [x] Normalisation: Indian dates (DD-MM-YYYY, ambiguous flagged), amounts (`1,23,456.00` → `Decimal`), GSTIN upper-case
 - [x] Normalisation: state name → state code for place of supply ("Karnataka" → 29)
-- [ ] Prompt `extract_v2` (dev split only): receipt purchase rows are line items; vendor name excludes address words
+- [x] Prompt `extract_v2` (dev split only): receipt purchase rows are line items (verified on sample 11); vendor name excludes address words (written, but not verifiable on dev: the example was on test sample 02, so check it in M5)
 - [x] GSTIN: format, state code, checksum, one-character fix suggestion
 - [x] Tax: intra vs inter-state split, total and line-item sums with ₹1 tolerance, dated slab table
 - [x] Dates: future, old invoice, financial year
@@ -98,14 +98,15 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [x] Amount-in-words check (lakh / crore)
 - [x] Duplicate key (vendor GSTIN + invoice number + financial year)
 - [x] Status from issues (`ready` / `needs_review`)
-- [ ] pytest for all of the above; `ruff` clean
-- [ ] Update `build-along.md`
-- [ ] **M2 exit:** every rule implemented, tests pass offline
+- [x] pytest for all of the above; `ruff` clean
+- [x] Update `build-along.md`
+- [x] **M2 exit:** every rule implemented, tests pass offline (two warnings need pipeline pieces and are listed under M3)
 
 ## M3 Pipeline + API
 
 - [ ] `PipelineContext` and `build_default_pipeline()`
 - [ ] Steps: reading → extraction → grounding → document review (second reading, merge) → validation → ledger suggestion
+- [ ] From M2: `READINGS_DISAGREE` warning and the 0.5 confidence cap (second reading); `DUPLICATE_FILE` warning (SHA-256); `existing` duplicate keys from the repository (skip the document itself, rejected and failed records)
 - [ ] Cache readings by SHA-256
 - [ ] Ledger catalog (`accounting/catalog.py`) + suggestion prompt; reject codes not in the catalog
 - [ ] SQLite `documents` table, repository, service

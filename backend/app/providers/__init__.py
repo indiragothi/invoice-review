@@ -20,7 +20,7 @@ from app.reader.schemas import ReadDocument
 from app.schemas.extraction import Extraction
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
-EXTRACT_PROMPT = "extract_v1"
+EXTRACT_PROMPT = "extract_v2"
 
 
 @dataclass(frozen=True)
@@ -71,12 +71,18 @@ def format_words(document: ReadDocument) -> str:
     )
 
 
-def extract(document: ReadDocument, settings: Settings) -> ExtractionResult:
-    """Reading A: classify the document and extract fields with evidence word IDs."""
+def extract(
+    document: ReadDocument, settings: Settings, prompt_version: str = EXTRACT_PROMPT
+) -> ExtractionResult:
+    """Reading A: classify the document and extract fields with evidence word IDs.
+
+    `prompt_version` defaults to the prompt the app uses; experiments pass another file name
+    from `prompts/`. The version is recorded in the returned `CallInfo`.
+    """
     agent = Agent(
         build_model(settings),
         output_type=Extraction,
-        instructions=load_prompt(EXTRACT_PROMPT),
+        instructions=load_prompt(prompt_version),
         retries=1,
     )
     started = time.perf_counter()
@@ -87,7 +93,7 @@ def extract(document: ReadDocument, settings: Settings) -> ExtractionResult:
         call=CallInfo(
             provider=settings.llm_provider,
             model=settings.active_model,
-            prompt_version=EXTRACT_PROMPT,
+            prompt_version=prompt_version,
             input_tokens=usage.input_tokens or 0,
             output_tokens=usage.output_tokens or 0,
             seconds=round(time.perf_counter() - started, 2),

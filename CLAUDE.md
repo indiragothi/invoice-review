@@ -55,9 +55,10 @@ uv run --locked --no-sync ruff check app scripts ../playground          # lint
 uv run --locked --no-sync python -m scripts.generate_samples           # rebuild samples + manifest
 uv run --locked --no-sync python -m scripts.check_gemini               # 1 API call
 uv run --locked --no-sync python ../playground/read_samples.py         # reader on all samples
-uv run --locked --no-sync python ../playground/extract_samples.py all  # cached; --fresh = 1 call/doc
+uv run --locked --no-sync python ../playground/extract_samples.py all  # cached; --fresh = 1 call/doc; --prompt, --split dev
 uv run --locked --no-sync python ../playground/ground_samples.py        # grounding on cached extractions, offline
 uv run --locked --no-sync python ../playground/normalise_samples.py     # normalisation vs manifest, offline
+uv run --locked --no-sync python ../playground/compare_prompts.py extract_v1 extract_v2   # dev split, offline
 uv run --locked --no-sync python ../playground/tax_samples.py          # tax checks vs manifest, offline
 uv run --locked --no-sync python ../playground/rules_samples.py        # ground + normalise + rules vs manifest, offline
 uv run --locked --no-sync pytest                                        # pure-module tests

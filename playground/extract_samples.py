@@ -2,7 +2,8 @@
 
 For each document it reports classification, how many fields match the ground truth, and how
 many values are really contained in the words the model cited as evidence (a preview of
-grounding). Model outputs are cached in playground/output/extract/ so re-runs cost no quota.
+grounding). Model outputs are cached per prompt (extract_v1 -> output/extract/, others in
+output/<prompt>/) so re-runs cost no quota.
 
 Run from backend/:
 
@@ -10,8 +11,14 @@ Run from backend/:
     uv run --locked --no-sync python ../playground/extract_samples.py all      # all samples
     uv run --locked --no-sync python ../playground/extract_samples.py 1 --show # print the JSON
     ... add --fresh to ignore the cache (uses 1 API call per document)
+
+Prompt experiments (the cache of each prompt version is kept apart, so the extract_v1 outputs
+that the other playground scripts read are never overwritten):
+
+    ... all --prompt extract_v2 --split dev        # a model call on a test document is refused
 """
 
+import argparse
 import json
 import re
 import sys
@@ -24,11 +31,18 @@ BACKEND = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND))
 
 from app.config import APP_CONFIG, get_settings  # noqa: E402
-from app.providers import extract  # noqa: E402
+from app.providers import EXTRACT_PROMPT, extract  # noqa: E402
 from app.reader import read_document  # noqa: E402
 from app.schemas.extraction import Evidenced, Extraction  # noqa: E402
 
-CACHE = Path(__file__).resolve().parent / "output" / "extract"
+OUTPUT = Path(__file__).resolve().parent / "output"
+
+
+def cache_dir(prompt: str) -> Path:
+    """extract_v1 keeps its original folder (the offline playground scripts read it)."""
+    return OUTPUT / ("extract" if prompt == "extract_v1" else prompt)
+
+
 SECONDS_BETWEEN_CALLS = 4.5  # free tier: 15 requests per minute
 
 
@@ -147,26 +161,44 @@ def grounding(extraction: Extraction, words: dict[str, str]) -> tuple[int, int, 
 
 
 def main() -> None:
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    fresh, show = "--fresh" in sys.argv, "--show" in sys.argv
+    parser = argparse.ArgumentParser()
+    parser.add_argument("which", nargs="*", help="sample numbers, or 'all'")
+    parser.add_argument("--fresh", action="store_true")
+    parser.add_argument("--show", action="store_true")
+    parser.add_argument("--prompt", default=EXTRACT_PROMPT, help="file name in providers/prompts")
+    parser.add_argument("--split", choices=["dev", "test"])
+    parser.add_argument("--allow-test", action="store_true", help="let a new prompt see test docs")
+    options = parser.parse_args()
+    fresh, show, prompt = options.fresh, options.show, options.prompt
+
     manifest = json.loads((APP_CONFIG.samples_dir / "manifest.json").read_text(encoding="utf-8"))
     documents = manifest["documents"]
-    if args and args[0] != "all":
-        documents = [documents[int(n) - 1] for n in args]
+    if options.which and options.which[0] != "all":
+        documents = [documents[int(n) - 1] for n in options.which]
+    if options.split:
+        documents = [d for d in documents if d["split"] == options.split]
     settings = get_settings()
-    CACHE.mkdir(parents=True, exist_ok=True)
+    cache = cache_dir(prompt)
+    cache.mkdir(parents=True, exist_ok=True)
+    print(f"prompt {prompt}, cache {cache.name}/, {len(documents)} documents")
 
     totals = {"right": 0, "fields": 0, "grounded": 0, "values": 0, "type": 0}
     for entry in documents:
         path = APP_CONFIG.samples_dir / entry["file"]
         read = read_document(path.read_bytes()).document
-        cache_file = CACHE / f"{path.stem}.json"
+        cache_file = cache / f"{path.stem}.json"
         if cache_file.exists() and not fresh:
             cached = json.loads(cache_file.read_text(encoding="utf-8"))
             extraction = Extraction.model_validate(cached["extraction"])
             call = cached["call"]
         else:
-            result = extract(read, settings)
+            if entry["split"] == "test" and not options.allow_test:
+                sys.exit(
+                    f"{path.name} is in the test split: no new model call on it while prompts "
+                    "are being tuned (docs/evaluation.md). Use --split dev, or --allow-test "
+                    "for the final evaluation."
+                )
+            result = extract(read, settings, prompt)
             extraction, call = result.extraction, result.call.__dict__
             cache_file.write_text(
                 json.dumps({"extraction": extraction.model_dump(), "call": call}, indent=2),

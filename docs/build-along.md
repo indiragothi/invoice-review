@@ -389,3 +389,59 @@ Important locations: `backend/app/validation/duplicates.py`, `backend/tests/test
 Not built yet: the cap of 0.5 for two readings that disagree (needs the second reading, M3). `READINGS_DISAGREE` and `DUPLICATE_FILE` are also added by the pipeline.
 
 Important locations: `backend/app/validation/confidence.py`, `backend/app/validation/review.py`, `backend/tests/test_confidence.py`, `backend/tests/test_review.py`.
+
+### Slice 18: Prompt `extract_v2` (dev split only), and M2 wrap-up  (milestone M2)
+
+- **Outcome:**
+  - `providers/prompts/extract_v2.md` = v1 plus two rules. (4) On a receipt every purchased item row is a line item even without a table (a fuel row, each dish); fill only what is printed on that row; never turn a total, tax or payment row into a line item. (6) `vendor_name` is the business name only; stop before address words, phone numbers, taglines and labels. Both are written generally; no sample name or address is in the prompt.
+  - `extract(document, settings, prompt_version)` takes the prompt version (recorded in `CallInfo`); **`EXTRACT_PROMPT` is now `extract_v2`**.
+  - `playground/extract_samples.py`: `--prompt`, `--split dev`. One cache folder per prompt (`extract_v1` stays in `output/extract/`, which the offline scripts read; others go to `output/<prompt>/`). A model call on a test-split document is refused unless `--allow-test` (reserved for the final evaluation); cached results can still be read.
+  - `playground/compare_prompts.py`: v1 against v2 on the dev split, offline (fields, ungrounded count, line items, status, errors, tokens).
+- **Why:** the two weaknesses seen in slice 5 that a prompt can fix. Prompts are tuned on the dev split only (`docs/evaluation.md`).
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync python ../playground/extract_samples.py all --prompt extract_v2 --split dev --fresh   # 7 API calls (done once)
+  uv run --locked --no-sync python ../playground/compare_prompts.py extract_v1 extract_v2                       # offline
+  ```
+
+- **Live calls used:** 7 (`gemini-3.5-flash-lite`, one per dev document: 01, 03, 05, 07, 08, 09, 11), about 4,000 input tokens each, 8,800 for the two-page invoice.
+- **Result (dev split, 7 documents, one run each):**
+
+  | | `extract_v1` | `extract_v2` |
+  |---|---|---|
+  | Fuel receipt (11): line items / fields | 0 / 6 of 7 | **1 / 7 of 7** |
+  | Other six dev documents: status and blocking codes | as in the manifest | identical |
+  | Values still ungrounded after grounding | 0 | 0 |
+  | Review status vs manifest | 7/7 | 7/7 |
+
+  Sample 03: v2 printed the place of supply as "Madhya Pradesh" where v1 had "Madhya Pradesh (23)". The playground's rough scorer counts that as wrong; the real normaliser reads both as state 23, so it is not a regression. Vendor names were identical in v1 and v2 on all dev documents. v2 costs about 3 % more input tokens (the longer prompt).
+- **What this does not show:** the vendor-name problem was seen on sample 02, which is in the **test** split, and no dev document has the problem, so rule 6 could not be checked and nothing is claimed for it. Its effect is measured in M5 on the test split. Results are from one run; model output varies a little between runs (see the sample 03 spelling).
+- **Checkpoint:** `compare_prompts.py extract_v1 extract_v2` prints `lines 0 -> 1` and `fields 6/7 -> 7/7` for `11-fuel-receipt.jpg`, and no other difference in status or errors.
+
+#### M2 summary
+
+Everything in M2 is pure code with 267 offline tests (ruff clean), and no model call is needed to run them.
+
+| Slice | What |
+|---|---|
+| 6 | Typed models: grounded field, normalised invoice / receipt, issues |
+| 7 | Grounding with row-based re-pointing (489 of 489 values grounded on the 12 samples) |
+| 8 | Normalisation: amounts, day-first dates (ambiguous flagged), GSTIN, state codes |
+| 9 | GSTIN validation with a fix suggestion |
+| 10 | Tax split, totals, dated GST slab table |
+| 11 | Date checks and the financial year |
+| 12-13 | Invoice rules (header, then money and lines) |
+| 14 | Receipt rules |
+| 15 | Amount in words (lakh / crore) |
+| 16 | Duplicate keys and rules |
+| 17 | Confidence caps and review status (`review_document`) |
+| 18 | `extract_v2` |
+
+On the 12 cached samples the whole chain gives the manifest's blocking codes and status on 12/12, with no API call (`rules_samples.py`).
+
+**Moved to M3** (they need pipeline pieces): `READINGS_DISAGREE` and the 0.5 confidence cap (second reading); `DUPLICATE_FILE` (SHA-256 of the file); loading `existing` duplicate keys from the repository. 27 of the 29 issue codes in `policy-rules.md` are produced by rules; these are the other two.
+
+**Still to verify by you:** the GST state table (`normalisation/states.py`) and the rate-slab table (`validation/tax_slabs.py`) are written from the policy text and memory, not from the official lists. Both are marked in the code.
+
+Important locations: `backend/app/providers/prompts/extract_v2.md`, `backend/app/providers/__init__.py`, `playground/extract_samples.py`, `playground/compare_prompts.py`.
