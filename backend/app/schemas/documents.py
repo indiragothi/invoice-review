@@ -30,8 +30,13 @@ class TaxLine(BaseModel):
 
 
 class NormalisedDate(BaseModel):
-    """A parsed date. `ambiguous` means day and month could be swapped and nothing settled it."""
+    """A parsed date. `raw` None = not printed; `raw` set but `value` None = could not be parsed.
 
+    `ambiguous` means day and month could be swapped and nothing settled it. `value` then holds
+    the day-first reading (the Indian default) so the reviewer sees a concrete suggestion.
+    """
+
+    raw: str | None = None
     value: date | None = None
     ambiguous: bool = False
 

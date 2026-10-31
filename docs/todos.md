@@ -87,8 +87,8 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [x] Pydantic models: invoice, receipt, line item, field-with-evidence, `ValidationIssue`
 - [x] Grounding: value must appear in cited words; box = union of word boxes; `ungrounded` otherwise
 - [x] Grounding: when cited IDs miss by a word, search the same line and re-point (seen on samples 08, 09)
-- [ ] Normalisation: Indian dates (DD-MM-YYYY, ambiguous flagged), amounts (`1,23,456.00` → `Decimal`), GSTIN upper-case
-- [ ] Normalisation: state name → state code for place of supply ("Karnataka" → 29)
+- [x] Normalisation: Indian dates (DD-MM-YYYY, ambiguous flagged), amounts (`1,23,456.00` → `Decimal`), GSTIN upper-case
+- [x] Normalisation: state name → state code for place of supply ("Karnataka" → 29)
 - [ ] Prompt `extract_v2` (dev split only): receipt purchase rows are line items; vendor name excludes address words
 - [ ] GSTIN: format, state code, checksum, one-character fix suggestion
 - [ ] Tax: intra vs inter-state split, total and line-item sums with ₹1 tolerance, dated slab table

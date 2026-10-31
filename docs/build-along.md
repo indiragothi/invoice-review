@@ -161,3 +161,26 @@ What I found: the reader gives nearly every table cell its own `line` number, so
 Known limit: a wrong number that also appears whole next to the cited word would be accepted (for example a rate "18" in the neighbouring cell). It is the nearest match and the reviewer sees the box, but the second reading (M3) is the real guard.
 
 Important locations: `backend/app/pipeline/grounding.py`, `backend/tests/test_grounding.py`, `playground/ground_samples.py`.
+
+### Slice 8: Normalisation: amounts, dates, GSTIN, state codes  (milestone M2)
+
+- **Outcome:** `backend/app/normalisation/`. `amounts.py`: `"₹ 1,23,456.00"` -> `Decimal`, brackets and minus are negative, `"9%"` -> `Decimal("9")`. `dates.py`: day-first (DD-MM-YYYY, `/`, `.`, `21 Aug 2026`, `April 25, 2025`); a numeric date where day and month could swap (04/05/2025) gets `ambiguous=True` with the day-first reading kept as the suggestion, never silently guessed. `text.py`: GSTIN upper-cased and unspaced, whitespace collapsed. `states.py`: state name or code -> 2-digit GST code ("Karnataka" -> 29, "Madhya Pradesh (23)" -> 23; a name and code that disagree give None). `assemble.py`: `normalise_extraction()` turns an `Extraction` into a typed `Invoice` or `Receipt` (None for "other").
+- **Why:** Rules compare numbers, dates and state codes. They cannot do that on printed strings.
+- **Small model change:** `NormalisedDate` now has `raw`, so rules can tell "date not printed" (`raw` None) from "date unreadable" (`raw` set, `value` None).
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest                                         # 64 tests (12 grounding + 52 normalisation)
+  uv run --locked --no-sync python ../playground/normalise_samples.py      # offline, cached extractions vs manifest.json
+  ```
+
+- **Result:** 64 tests pass; ruff clean. On the 12 cached samples every compared value matches the manifest (total, taxable value, CGST / SGST / IGST totals, date, GSTINs, place of supply; 100/100, a few of those are trivial zeros for tax heads a document does not have). No ambiguous dates among the samples. No API calls, no new dependencies.
+- **Checkpoint:** `normalise_samples.py` ends with `TOTAL 100/100`.
+
+Limits and notes:
+- The state table (`states.py`) is written from memory of the GST list. **Verify it against the official list** (as with the slab table). It includes 26 (merged Dadra / Daman), 97 and 99; the old Daman and Diu code 25 is not included.
+- An ambiguous date is not yet settled by other dates on the document ("unless the layout or other dates settle it"). Today every such date stays flagged; the reviewer decides.
+- An amount that cannot be parsed becomes None; the original text stays in the matching `GroundedField.raw`.
+- `reverse_charge` is not extracted yet (no field in `Extraction`); it stays False.
+
+Important locations: `backend/app/normalisation/`, `backend/tests/test_normalisation.py`, `playground/normalise_samples.py`.
