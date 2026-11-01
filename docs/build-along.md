@@ -624,3 +624,26 @@ Important locations: `backend/app/documents/service.py`, `backend/app/providers/
 Not built yet: edit (`PUT`), ledger selection, the decision and the approval invariant, bulk approve, correction email, export. The `security.md` upload checklist lines (renamed `.exe`, 50-page PDF) now pass at the API level; they are ticked in M6 with the rest of that checklist.
 
 Important locations: `backend/app/documents/routes.py`, `backend/app/documents/schemas.py`, `backend/app/reference_routes.py`, `backend/app/main.py`, `playground/api_samples.py`.
+
+### Slice 27: Ledger selection, decision, bulk approve and the approval invariant  (milestone M3)
+
+- **Outcome:**
+  - `validation/approval.py` (pure): `approval_blockers(status, issues, selected_ledger_code)` returns the reasons a record cannot be approved, `rejection_blockers(status)` the same for rejecting. A record can be approved only if it is `ready`, has no blocking error in its issues, and has a selected code that is in the catalog. `approved` and `rejected` are locked. It checks the status **and** the issues, so a bad status alone could not let an error through.
+  - `DocumentService.select_ledger`, `decide` and `bulk_approve` use it. `select_ledger` accepts only catalog codes (`LedgerNotFoundError` -> 404), refuses a decided record or one with no ledger step (409), stores `selected_code` and `overridden` (true when it differs from the suggestion) and a history entry. `decide` writes a `decision` history entry. `bulk_approve` runs the same check per document, keeps the order, ignores repeated ids, and returns `approved` and `skipped` with a reason each.
+  - Routes: `PUT /api/documents/{id}/ledger`, `POST /api/documents/{id}/decision`, `POST /api/documents/bulk-approve` (at most 200 ids). `409` carries the reasons in `detail`.
+  - The service method `list` is now `list_documents`: inside the class it hid Python's own `list` in type hints.
+- **Why:** this is the safety invariant of the project (`policy-rules.md`): code, not the UI, decides that a record with errors or no ledger can never be approved, and a human decision is final.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest tests/test_approval.py
+  uv run --locked --no-sync python ../playground/api_samples.py
+  ```
+
+- **Result:** 290 tests pass (7 new); ruff clean. `api_samples.py` passes 48/48 checks (22 new). Approve with no ledger `409`; unknown ledger `404`; confirm the suggestion -> not overridden, pick another -> overridden; approve ready + ledger `200`; approve again, reject after approve and change the ledger of an approved record are all `409`; a `needs_review` document with a ledger selected cannot be approved (`409`, reasons: status and `invalid_vendor_gstin`) and stays `needs_review`; a failed document cannot be approved or given a ledger; bad decision value `422`; unknown document `404`. Bulk approve of `[ready+ledger, ready no ledger, needs_review, approved, failed, unknown, repeated]` approves exactly the first and skips five with reasons. Reject works from `ready` and `needs_review`; after a rejection, uploading the same bill again gets no `duplicate_invoice` (only `duplicate_file`). No API calls, no new dependency.
+- **What this does not show:** the invariant is checked through the service only; nobody has tried to bypass it with a hand-edited database row (that is outside the threat model, the file is local). Edits are not built, so the "edit a decided record" lock is not exercised yet (it comes with the edit route). Confidence of a `ready` record is trusted from the pipeline status, not recomputed at approval.
+- **Checkpoint:** `api_samples.py` ends with `API 48/48 checks passed`; `tests/test_approval.py` passes.
+
+Not built yet: the `review_data` projection and `PUT` field edit (with source `human`, re-validation, lock of decided records), correction email, export, `READINGS_DISAGREE` / second reading.
+
+Important locations: `backend/app/validation/approval.py`, `backend/app/documents/service.py`, `backend/app/documents/routes.py`, `backend/tests/test_approval.py`, `playground/api_samples.py`.

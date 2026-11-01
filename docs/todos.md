@@ -11,7 +11,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 | M0 Plan | ✅ Done |
 | M1 Scaffold, samples, read + extract | ✅ Done (NVIDIA check optional, open) |
 | M2 Ground + validate | ✅ Done (`READINGS_DISAGREE` and `DUPLICATE_FILE` move to M3) |
-| M3 Pipeline + API | 🟨 In progress (slices 19-26 done) |
+| M3 Pipeline + API | 🟨 In progress (slices 19-27 done) |
 | M4 Review UI | ⬜ Not started |
 | M5 Evaluation | ⬜ Not started |
 | M6 Ship | ⬜ Not started |
@@ -116,8 +116,9 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [x] Document service (upload -> intake -> pipeline -> save; retry of a `failed` document) (`documents/service.py`)
 - [x] Upload intake: magic bytes, 5 MB, 5 pages, stored as `<uuid>.<ext>` (`documents/intake.py`; the HTTP 413 / 415 responses come with the routes)
 - [x] Routes, part 1: clients, ledgers, upload, list, get, file, page image, retry, delete
-- [ ] Routes, part 2: edit, ledger selection, decision, bulk approve (with the approval invariant below)
-- [ ] Approval invariant: `409` with open errors or no ledger; decided records locked
+- [x] Routes, part 2a: ledger selection, decision (approve / reject), bulk approve
+- [ ] Routes, part 2b: field edit `PUT /api/documents/{id}` (needs the `review_data` projection first)
+- [x] Approval invariant: `409` with open errors or no ledger; decided records locked (`validation/approval.py` + `DocumentService`); edits of a decided record are locked with the edit route
 - [ ] Correction email: eligibility codes + draft endpoint
 - [ ] Export: CSV / XLSX, approved only, formula-injection safe
 - [x] Retry with backoff on `429` / 5xx (`providers/retry.py`); `failed` + provider error after retries (the HTTP `502` comes with the routes)

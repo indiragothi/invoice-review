@@ -186,6 +186,125 @@ def main() -> None:
         r.status_code == 422 and r.json()["document"]["status"] == "failed",
         r.json()["detail"],
     )
+    failed_doc = r.json()["document"]["id"]
+    mode["fail"] = None
+
+    # ledger selection, decision, bulk approve: the approval invariant
+    def put_ledger(doc_id, code):
+        return client.put(f"/api/documents/{doc_id}/ledger", json={"ledger_code": code})
+
+    def decide(doc_id, decision):
+        return client.post(f"/api/documents/{doc_id}/decision", json={"decision": decision})
+
+    a, b, c = ids["01-intra-classic"], ids["09-two-page"], ids["03-inter-classic"]
+    bad = ids["05-invalid-vendor-gstin"]  # needs_review
+    r = decide(a, "approved")
+    check(
+        "approve a ready document with no ledger selected -> 409",
+        r.status_code == 409 and "ledger" in r.json()["detail"],
+        r.json()["detail"],
+    )
+    check("unknown ledger code -> 404", put_ledger(a, "9999").status_code == 404)
+    r = put_ledger(a, "6150")
+    check(
+        "confirm the suggestion -> overridden false",
+        r.status_code == 200
+        and r.json()["ledger"]["selected_code"] == "6150"
+        and not r.json()["ledger"]["overridden"],
+    )
+    r = put_ledger(a, "6190")
+    check(
+        "pick another ledger -> overridden true, history kept",
+        r.json()["ledger"]["overridden"] and r.json()["history"][-1]["event"] == "ledger_selected",
+    )
+    put_ledger(a, "6150")
+    r = decide(a, "approved")
+    check(
+        "approve a ready document with a ledger -> 200 approved",
+        r.status_code == 200 and r.json()["status"] == "approved",
+    )
+    r = decide(a, "approved")
+    check("approve again -> 409 locked", r.status_code == 409 and "locked" in r.json()["detail"])
+    check("reject an approved record -> 409", decide(a, "rejected").status_code == 409)
+    check("change the ledger of a decided record -> 409", put_ledger(a, "6190").status_code == 409)
+    check(
+        "approved stays approved", client.get(f"/api/documents/{a}").json()["status"] == "approved"
+    )
+
+    put_ledger(bad, "6140")
+    r = decide(bad, "approved")
+    check(
+        "approve needs_review even with a ledger -> 409",
+        r.status_code == 409
+        and "total" not in r.json()["detail"]
+        and "needs_review" in r.json()["detail"],
+        r.json()["detail"],
+    )
+    check(
+        "the same call fails again, nothing changed",
+        client.get(f"/api/documents/{bad}").json()["status"] == "needs_review",
+    )
+    check("approve a failed document -> 409", decide(failed_doc, "approved").status_code == 409)
+    check(
+        "select a ledger on a failed document -> 409",
+        put_ledger(failed_doc, "6190").status_code == 409,
+    )
+    check(
+        "bad decision value -> 422",
+        client.post(f"/api/documents/{b}/decision", json={"decision": "maybe"}).status_code == 422,
+    )
+    check("decision on an unknown document -> 404", decide("nope", "approved").status_code == 404)
+
+    put_ledger(b, "5100")
+    r = client.post(
+        "/api/documents/bulk-approve", json={"ids": [b, c, bad, a, failed_doc, "nope", b]}
+    )
+    body = r.json()
+    reasons = {s["id"]: s["reason"] for s in body["skipped"]}
+    check(
+        "bulk approve: only the ready one with a ledger is approved",
+        r.status_code == 200
+        and [d["id"] for d in body["approved"]] == [b]
+        and body["approved"][0]["status"] == "approved",
+        f"approved {len(body['approved'])}, skipped {len(body['skipped'])}",
+    )
+    check(
+        "bulk approve: the others are skipped with a reason",
+        set(reasons) == {c, bad, a, failed_doc, "nope"}
+        and "ledger" in reasons[c]
+        and "needs_review" in reasons[bad]
+        and "locked" in reasons[a]
+        and reasons["nope"] == "Document not found.",
+    )
+    check(
+        "bulk approve: the invalid ids list is bounded",
+        client.post("/api/documents/bulk-approve", json={"ids": ["x"] * 201}).status_code == 422,
+    )
+
+    # reject, and a rejected record no longer counts as a duplicate
+    r = decide(c, "rejected")
+    check(
+        "reject a ready document -> 200 rejected",
+        r.status_code == 200 and r.json()["status"] == "rejected",
+    )
+    check("reject a needs_review document -> 200", decide(bad, "rejected").status_code == 200)
+    path_03 = APP_CONFIG.samples_dir / by_stem["03-inter-classic"]["file"]
+    mode["stem"] = "03-inter-classic"
+    r = upload(path_03, "03-again.pdf", by_stem["03-inter-classic"]["client"])
+    codes = [i["code"] for i in r.json()["issues"]]
+    check(
+        "re-upload of a rejected bill: duplicate_file warns, duplicate_invoice does not",
+        "duplicate_file" in codes
+        and "duplicate_invoice" not in codes
+        and r.json()["status"] == "ready",
+    )
+    check(
+        "the export rule starts here: approved documents",
+        [
+            d["status"] for d in client.get("/api/documents", params={"status": "approved"}).json()
+        ].count("approved")
+        == 2,
+    )
 
     # delete
     victim = ids["12-restaurant-receipt"]

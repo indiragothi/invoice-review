@@ -13,12 +13,19 @@ from app.config import APP_CONFIG
 from app.documents.intake import IntakeError
 from app.documents.models import Document, DocumentStatus
 from app.documents.repository import DocumentRepository
-from app.documents.schemas import DocumentResponse
+from app.documents.schemas import (
+    BulkApproveRequest,
+    BulkApproveResponse,
+    DecisionRequest,
+    DocumentResponse,
+    LedgerSelection,
+)
 from app.documents.service import (
     ClientNotFoundError,
     ConflictError,
     DocumentNotFoundError,
     DocumentService,
+    LedgerNotFoundError,
     PageNotFoundError,
 )
 
@@ -77,11 +84,17 @@ def upload(
     return _processed(document, 201)
 
 
+@router.post("/bulk-approve", response_model=BulkApproveResponse)
+def bulk_approve(body: BulkApproveRequest, service: ServiceDep):
+    approved, skipped = service.bulk_approve(body.ids)
+    return {"approved": approved, "skipped": skipped}
+
+
 @router.get("", response_model=list[DocumentResponse])
 def list_documents(
     service: ServiceDep, status: DocumentStatus | None = None, client_id: str | None = None
 ):
-    return service.list(status=status.value if status else None, client_id=client_id)
+    return service.list_documents(status=status.value if status else None, client_id=client_id)
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
@@ -115,6 +128,28 @@ def get_page(document_id: str, page: int, service: ServiceDep):
     except (DocumentNotFoundError, PageNotFoundError) as error:
         raise _not_found(error) from error
     return Response(png, media_type="image/png", headers={"X-Content-Type-Options": "nosniff"})
+
+
+@router.put("/{document_id}/ledger", response_model=DocumentResponse)
+def select_ledger(document_id: str, body: LedgerSelection, service: ServiceDep):
+    try:
+        return service.select_ledger(document_id, body.ledger_code)
+    except DocumentNotFoundError as error:
+        raise _not_found(error) from error
+    except LedgerNotFoundError as error:
+        raise HTTPException(404, f"Unknown ledger: {body.ledger_code}") from error
+    except ConflictError as error:
+        raise HTTPException(409, str(error)) from error
+
+
+@router.post("/{document_id}/decision", response_model=DocumentResponse)
+def decide(document_id: str, body: DecisionRequest, service: ServiceDep):
+    try:
+        return service.decide(document_id, body.decision)
+    except DocumentNotFoundError as error:
+        raise _not_found(error) from error
+    except ConflictError as error:
+        raise HTTPException(409, str(error)) from error
 
 
 @router.post("/{document_id}/retry", response_model=DocumentResponse)

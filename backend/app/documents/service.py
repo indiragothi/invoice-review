@@ -10,6 +10,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
+from app.accounting.catalog import checked_ledger_code
 from app.clients import CLIENTS_BY_ID
 from app.config import Settings
 from app.documents.intake import check_upload, new_stored_filename, save_upload, uploads_dir
@@ -21,6 +22,8 @@ from app.providers import ProviderError
 from app.reader import render_images
 from app.reader.cache import ReadingCache, sha256_hex
 from app.reader.render import to_png_bytes
+from app.schemas.issues import ValidationIssue
+from app.validation.approval import DECIDED, approval_blockers, rejection_blockers
 from app.validation.duplicates import invoice_key, key_to_json, receipt_key
 
 
@@ -33,6 +36,10 @@ class DocumentNotFoundError(Exception):
 
 
 class PageNotFoundError(Exception):
+    pass
+
+
+class LedgerNotFoundError(Exception):
     pass
 
 
@@ -71,7 +78,7 @@ class DocumentService:
             raise DocumentNotFoundError(document_id)
         return document
 
-    def list(self, status: str | None = None, client_id: str | None = None):
+    def list_documents(self, status: str | None = None, client_id: str | None = None):
         return self.repository.list(status=status, client_id=client_id)
 
     def file_path(self, document: Document) -> Path:
@@ -93,6 +100,62 @@ class DocumentService:
         document = self.get(document_id)
         self.file_path(document).unlink(missing_ok=True)
         self.repository.delete(document)
+
+    # ------------------------------------------------------------------ human decisions
+
+    def select_ledger(self, document_id: str, ledger_code: str) -> Document:
+        """The reviewer confirms the suggestion or overrides it. Only catalog codes are allowed."""
+        code = checked_ledger_code(ledger_code)
+        if code is None:
+            raise LedgerNotFoundError(ledger_code)
+        document = self.get(document_id)
+        if document.status in DECIDED:
+            raise ConflictError(f"The record is already {document.status} and locked.")
+        if document.ledger is None:
+            raise ConflictError("This document has no ledger step yet; it is not processed.")
+        suggested = document.ledger.get("suggested_code")
+        ledger = {**document.ledger, "selected_code": code, "overridden": code != suggested}
+        history = [
+            *document.history,
+            _event("ledger_selected", code=code, overridden=ledger["overridden"]),
+        ]
+        return self.repository.update(document, ledger=ledger, history=history)
+
+    def decide(self, document_id: str, decision: str) -> Document:
+        """Approve or reject. The approval invariant is enforced here, whatever route calls it."""
+        document = self.get(document_id)
+        blockers = self._blockers(document, decision)
+        if blockers:
+            raise ConflictError(" ".join(blockers))
+        history = [*document.history, _event("decision", decision=decision)]
+        return self.repository.update(document, status=DocumentStatus(decision), history=history)
+
+    def bulk_approve(self, ids: list[str]) -> tuple[list[Document], list[dict[str, str]]]:
+        """Approve what can be approved; return the rest with the reason. Same check as `decide`."""
+        approved: list[Document] = []
+        skipped: list[dict[str, str]] = []
+        for document_id in dict.fromkeys(ids):  # in order, each id once
+            document = self.repository.get(document_id)
+            if document is None:
+                skipped.append({"id": document_id, "reason": "Document not found."})
+                continue
+            blockers = self._blockers(document, "approved")
+            if blockers:
+                skipped.append({"id": document_id, "reason": " ".join(blockers)})
+                continue
+            history = [*document.history, _event("decision", decision="approved", bulk=True)]
+            approved.append(
+                self.repository.update(document, status=DocumentStatus.APPROVED, history=history)
+            )
+        return approved, skipped
+
+    @staticmethod
+    def _blockers(document: Document, decision: str) -> list[str]:
+        if decision == "rejected":
+            return rejection_blockers(document.status)
+        issues = [ValidationIssue.model_validate(i) for i in document.issues or []]
+        selected = (document.ledger or {}).get("selected_code")
+        return approval_blockers(document.status, issues, selected)
 
     # ------------------------------------------------------------------ upload / retry
 

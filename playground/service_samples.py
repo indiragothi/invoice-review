@@ -97,7 +97,7 @@ def main() -> None:
     )
 
     # 3. rejected before anything is stored
-    before = len(service.list())
+    before = len(service.list_documents())
     outcomes = []
     for label, data, client in (
         ("renamed exe", b"MZ" + b"\0" * 50, "C001"),
@@ -110,7 +110,7 @@ def main() -> None:
             outcomes.append(f"{label}: {error.status_code}")
         except ClientNotFoundError:
             outcomes.append(f"{label}: unknown client")
-    print(f"REJECT   {outcomes}; rows stored {len(service.list()) - before} (want 0)")
+    print(f"REJECT   {outcomes}; rows stored {len(service.list_documents()) - before} (want 0)")
 
     # 4. provider fails -> failed, then retry works
     def busy_extractor(_reading):

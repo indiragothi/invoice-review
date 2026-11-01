@@ -1,9 +1,9 @@
 """HTTP response shapes for documents (docs/api-and-pipeline.md, DocumentResponse)."""
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.issues import ValidationIssue
 
@@ -13,6 +13,23 @@ class LedgerState(BaseModel):
     reason: str
     selected_code: str | None = None
     overridden: bool = False
+
+
+class LedgerSelection(BaseModel):
+    ledger_code: str
+
+
+class DecisionRequest(BaseModel):
+    decision: Literal["approved", "rejected"]
+
+
+class BulkApproveRequest(BaseModel):
+    ids: list[str] = Field(max_length=200)
+
+
+class SkippedDocument(BaseModel):
+    id: str
+    reason: str
 
 
 class DocumentResponse(BaseModel):
@@ -43,3 +60,8 @@ class DocumentResponse(BaseModel):
     def _none_is_empty(cls, value: object) -> object:
         """A failed document has no issues yet (the column is empty): send an empty list."""
         return [] if value is None else value
+
+
+class BulkApproveResponse(BaseModel):
+    approved: list[DocumentResponse]
+    skipped: list[SkippedDocument]

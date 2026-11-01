@@ -2,7 +2,7 @@
 
 Target HTTP API for the backend. Implemented in milestone M3; keep this file in sync with the code.
 
-**Built so far:** `/health`, `GET /api/clients`, `GET /api/accounting/ledgers`, `POST` / `GET /api/documents`, `GET /api/documents/{id}`, `/file`, `/pages/{n}`, `POST .../retry`, `DELETE`. Not built yet: auth, `PUT` edit, ledger selection, decision, bulk approve, correction email, export.
+**Built so far:** `/health`, `GET /api/clients`, `GET /api/accounting/ledgers`, `POST` / `GET /api/documents`, `GET /api/documents/{id}`, `/file`, `/pages/{n}`, `PUT .../ledger`, `POST .../decision`, `POST /bulk-approve`, `POST .../retry`, `DELETE`. Not built yet: auth, `PUT` field edit, correction email, export.
 
 Base URL (local): `http://localhost:8000` · Swagger UI: `/docs` · CORS allows the Vite app at `http://localhost:5173` (or `ALLOWED_ORIGIN`).
 
@@ -44,6 +44,12 @@ Base URL (local): `http://localhost:8000` · Swagger UI: `/docs` · CORS allows 
 | `502` | Provider failed after retries; the record is saved as `failed` |
 
 A document that fails after it was saved (upload or retry) answers `502` (provider) or `422` (not an invoice or receipt, or no readable text) with a body `{ "detail": "...", "document": <DocumentResponse> }`; the record stays in the list as `failed` and can be retried (`failed` documents have `issues: []`).
+
+## Decisions
+
+- `PUT /api/documents/{id}/ledger` `{ "ledger_code": "6130" }` sets `ledger.selected_code` (the reviewer confirms the suggestion or overrides it; `overridden` is true when it differs). Unknown code -> `404`; decided or not yet processed document -> `409`. The suggestion is never selected automatically.
+- `POST /api/documents/{id}/decision` `{ "decision": "approved" | "rejected" }`. **Approve** needs status `ready`, no blocking error and a valid selected ledger, otherwise `409` with the reasons in `detail`. **Reject** is allowed from `ready` or `needs_review`. A decided record is locked: every further decision or ledger change is `409`.
+- `POST /api/documents/bulk-approve` `{ "ids": [...] }` (at most 200) -> `200 { "approved": [DocumentResponse], "skipped": [{ "id", "reason" }] }`. Same check per document; unknown ids are skipped with "Document not found."
 
 ## DocumentResponse
 
