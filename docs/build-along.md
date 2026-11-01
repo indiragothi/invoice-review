@@ -699,3 +699,27 @@ Important locations: `backend/app/documents/projection.py`, `backend/app/documen
 Not built yet: export, second reading + `READINGS_DISAGREE`, password gate.
 
 Important locations: `backend/app/correction_email/`, `backend/app/providers/prompts/email_v1.md`, `backend/app/providers/__init__.py`, `backend/app/documents/service.py`, `playground/email_samples.py`.
+
+### Slice 30: Export (CSV and XLSX)  (milestone M3)
+
+- **New dependency (approved by the owner):** `openpyxl==3.1.5` (and its only dependency `et-xmlfile==2.0.0`), exact pins in `pyproject.toml` and `uv.lock`, for writing XLSX files. Released 28-06-2024, outside the 7-day cooldown. `uv sync --locked` works.
+- **Outcome:**
+  - `export/rows.py` (pure): `COLUMNS`, `ExportFacts`, `build_row(document, facts)` (one row per approved document: tax heads summed, ledger name from the catalog, open warnings only, approval time from the history) and `safe_text` (leading `=`, `+`, `-`, `@`, tab, CR -> a leading `'`). Only text is made safe; amounts stay numbers, so a negative round off is not damaged.
+  - `export/files.py`: `to_csv` (UTF-8 with BOM, two decimals, `DD-MM-YYYY`) and `to_xlsx` (numbers with `#,##0.00`, real dates, text cells forced to the string type, frozen heading row).
+  - `DocumentService.export_rows(client_id)`: only `approved` documents, oldest first, from the current normalised fields (edits included). `GET /api/export?format=csv|xlsx&client_id=` returns an attachment.
+  - The service now has one helper, `_parsed(document)`, for "the normalised document as it is now"; the correction email uses it too.
+- **Why:** the output of the whole project: approved records for the firm's Excel / Tally work. Invariant 4 (`policy-rules.md`): nothing is exported unless it is approved. The formula check is on `security.md`'s list.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest tests/test_export.py
+  uv run --locked --no-sync python ../playground/api_samples.py
+  ```
+
+- **Result:** 309 tests pass (7 new); ruff clean. `api_samples.py` passes 86/86 (11 new). With 4 approved documents among 17 stored: the CSV has exactly those 4 rows, none of the ready, needs_review, rejected or failed ones; the reviewer's corrected GSTIN (`...E1ZE` -> `...E1Z7`) and the chosen ledger are in the row; amounts have two decimals and dates are `DD-MM-YYYY`. A bill whose vendor name is `=HYPERLINK("http://evil.example","click")` is approved normally and exported as text in both formats (`'=HYPERLINK...`, XLSX data type `s`); the XLSX total is a real number. The client filter works (a client with nothing approved gets only the headings), unknown client `404`, unknown format `422`, and exporting changes nothing.
+- **What this does not show:** the files were read back with `csv` and `openpyxl`, not opened in Excel, LibreOffice or Tally. The column set is my choice (no import format of Tally was specified; a Tally-friendly export is M7). Large exports are built in memory (fine for a demo of a few hundred rows).
+- **Checkpoint:** `api_samples.py` ends with `API 86/86 checks passed`; `tests/test_export.py` passes. Open one downloaded file yourself (`/api/export?format=xlsx` after approving something) to see it in Excel.
+
+Not built yet (M3): the second reading + merge (`READINGS_DISAGREE`, 0.5 cap, `agreement` per field) and the final `curl` walkthrough of M3's exit criteria. The password gate is M6.
+
+Important locations: `backend/app/export/`, `backend/app/documents/service.py` (`export_rows`), `backend/tests/test_export.py`, `backend/pyproject.toml`, `backend/uv.lock`.

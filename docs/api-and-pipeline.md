@@ -2,7 +2,7 @@
 
 Target HTTP API for the backend. Implemented in milestone M3; keep this file in sync with the code.
 
-**Built so far:** `/health`, `GET /api/clients`, `GET /api/accounting/ledgers`, `POST` / `GET /api/documents`, `GET /api/documents/{id}`, `/file`, `/pages/{n}`, `PUT /api/documents/{id}` (field edit), `PUT .../ledger`, `POST .../decision`, `POST /bulk-approve`, `POST .../correction-email`, `POST .../retry`, `DELETE`. Not built yet: auth, export.
+**Built so far:** `/health`, `GET /api/clients`, `GET /api/accounting/ledgers`, `POST` / `GET /api/documents`, `GET /api/documents/{id}`, `/file`, `/pages/{n}`, `PUT /api/documents/{id}` (field edit), `PUT .../ledger`, `POST .../decision`, `POST /bulk-approve`, `POST .../correction-email`, `POST .../retry`, `DELETE`, `GET /api/export`. Not built yet: auth.
 
 Base URL (local): `http://localhost:8000` · Swagger UI: `/docs` · CORS allows the Vite app at `http://localhost:5173` (or `ALLOWED_ORIGIN`).
 
@@ -52,6 +52,14 @@ A document that fails after it was saved (upload or retry) answers `502` (provid
 An edited field gets `source: "human"`, `confidence: 1.0` and `grounding: "grounded"` (`"missing"` when cleared); `original` keeps the model's reading, and the history gets an `edited` entry with `{path: {from, to}}`. Then every rule runs again, including the duplicate checks, and the status follows the result: `needs_review` -> `ready` when the last blocking error is fixed, `ready` -> `needs_review` when an edit breaks a rule. A format cap still applies to a human value that fails its own format (an invalid GSTIN is capped at 0.3 and keeps its blocking error).
 
 `404` unknown document; `422` unknown path (nothing is applied), a value over 500 characters or an empty `fields`; `409` for a decided (`approved` / `rejected`), `failed` or `processing` document. Adding or removing line-item rows is not supported yet.
+
+## Export
+
+`GET /api/export?format=csv|xlsx&client_id=C001` returns the **approved** documents, oldest first, as an attachment (`approved-YYYY-MM-DD.csv` / `.xlsx`). `format` defaults to `csv`; `client_id` is optional. With nothing approved the file has only the headings. Unknown client -> `404`; unknown format -> `422`.
+
+Columns: document id, client id / name / GSTIN, type, vendor or merchant, vendor GSTIN, number, date, place of supply (state code), taxable value, CGST, SGST, UTGST, IGST, cess, round off, total, ledger code and name, whether the reviewer changed the ledger, open warnings (codes), approval time, original file name. Values are the current normalised ones, so the reviewer's corrections are in. CSV is UTF-8 with a BOM (Excel shows names correctly), amounts with two decimals, dates `DD-MM-YYYY`. XLSX has real numbers and real dates, so sums and filters work.
+
+Text that comes from the bill or the upload is made safe for spreadsheets: a value starting with `=`, `+`, `-`, `@`, tab or carriage return gets a leading `'`, and in XLSX such cells are stored as text. Amounts are numbers and are not touched.
 
 ## Correction email
 

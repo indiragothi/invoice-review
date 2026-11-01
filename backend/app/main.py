@@ -7,6 +7,7 @@ from app.config import APP_CONFIG, get_settings
 from app.database import create_db_engine, session_factory
 from app.documents import routes as document_routes
 from app.documents.service import EmailDrafter
+from app.export.routes import router as export_router
 from app.pipeline.base import Extractor, LedgerSuggester
 from app.providers import draft_correction_email, extract, suggest_ledger
 from app.reader.cache import ReadingCache
@@ -48,6 +49,7 @@ def create_app(
 
     app.include_router(reference_router)
     app.include_router(document_routes.router)
+    app.include_router(export_router)
 
     @app.get("/health")
     def health() -> dict[str, str]:

@@ -6,6 +6,8 @@ exists so far and its status codes (docs/api-and-pipeline.md). Run from backend/
     uv run --locked --no-sync python ../playground/api_samples.py
 """
 
+import csv
+import io
 import json
 import shutil
 import sys
@@ -18,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pymupdf  # noqa: E402
 from email_samples import cached_draft  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+from openpyxl import load_workbook  # noqa: E402
 from pipeline_samples import cached_extractor, cached_ledger_suggester  # noqa: E402
 
 from app.config import APP_CONFIG  # noqa: E402
@@ -497,6 +500,97 @@ def main() -> None:
         "every listed document carries supplier_action_required",
         all(isinstance(d["supplier_action_required"], bool) for d in listing),
         f"{sum(d['supplier_action_required'] for d in listing)} of {len(listing)} need action",
+    )
+
+    # export: approved records only, safe for spreadsheets
+    EVIL = '=HYPERLINK("http://evil.example","click")'
+    r = edit(failed_id, {"vendor_name": EVIL})
+    put_ledger(failed_id, "6190")
+    check(
+        "a bill whose vendor name is a formula can still be approved",
+        r.status_code == 200 and decide(failed_id, "approved").status_code == 200,
+    )
+
+    approved = client.get("/api/documents", params={"status": "approved"}).json()
+    approved_ids = {d["id"] for d in approved}
+    r = client.get("/api/export")
+    table = list(csv.DictReader(io.StringIO(r.content.decode("utf-8-sig"))))
+    exported_ids = {row["Document ID"] for row in table}
+    check(
+        "GET /api/export (csv): only approved documents, as an attachment",
+        r.status_code == 200
+        and r.headers["content-type"].startswith("text/csv")
+        and "attachment" in r.headers["content-disposition"]
+        and exported_ids == approved_ids
+        and len(table) == len(approved) >= 3,
+        f"{len(table)} rows",
+    )
+    others = {d["id"] for d in client.get("/api/documents").json()} - approved_ids
+    check(
+        "no ready, needs_review, rejected or failed document is exported",
+        not (exported_ids & others),
+    )
+    by_id = {row["Document ID"]: row for row in table}
+    check(
+        "the export shows the reviewer's corrected GSTIN and the chosen ledger",
+        by_id[fix_id]["Vendor GSTIN"] == good
+        and by_id[fix_id]["Ledger code"] == "6140"
+        and by_id[fix_id]["Ledger"] == "Repairs and maintenance"
+        and by_id[fix_id]["Ledger changed by reviewer"] == "no",
+        f"{wrong} -> {by_id[fix_id]['Vendor GSTIN']}",
+    )
+    row_a = by_id[a]
+    check(
+        "amounts have two decimals, dates are DD-MM-YYYY, approval time is there",
+        row_a["Total"].replace(".", "").isdigit()
+        and row_a["Total"].split(".")[-1].__len__() == 2
+        and len(row_a["Date"]) == 10
+        and row_a["Date"][2] == "-"
+        and row_a["Approved at"] != "",
+        f"{row_a['Total']} on {row_a['Date']}",
+    )
+    check(
+        "formula injection: the vendor name is exported as text",
+        by_id[failed_id]["Vendor / merchant"] == "'" + EVIL,
+        by_id[failed_id]["Vendor / merchant"][:30],
+    )
+
+    r = client.get("/api/export", params={"format": "xlsx"})
+    book = load_workbook(io.BytesIO(r.content))
+    sheet = book["Approved"]
+    heads = [c.value for c in sheet[1]]
+    cells = {row[heads.index("Document ID")].value: row for row in sheet.iter_rows(min_row=2)}
+    vendor_cell = cells[failed_id][heads.index("Vendor / merchant")]
+    total_cell = cells[a][heads.index("Total")]
+    check(
+        "GET /api/export?format=xlsx: real numbers, text that is never a formula",
+        r.status_code == 200
+        and set(cells) == approved_ids
+        and isinstance(total_cell.value, int | float)
+        and vendor_cell.value == "'" + EVIL
+        and vendor_cell.data_type == "s",
+        f"{len(cells)} rows, total {total_cell.value}",
+    )
+    c1 = client.get("/api/export", params={"client_id": "C001"}).content.decode("utf-8-sig")
+    c2 = client.get("/api/export", params={"client_id": "C002"}).content.decode("utf-8-sig")
+    approved_c001 = [d for d in approved if d["client_id"] == "C001"]
+    check(
+        "client filter; a client with nothing approved gets just the headings",
+        len(c1.splitlines()) == 1 + len(approved_c001) and len(c2.splitlines()) == 1,
+        f"C001 {len(c1.splitlines()) - 1} rows, C002 {len(c2.splitlines()) - 1}",
+    )
+    check(
+        "unknown client -> 404",
+        client.get("/api/export", params={"client_id": "C999"}).status_code == 404,
+    )
+    check(
+        "unknown format -> 422",
+        client.get("/api/export", params={"format": "pdf"}).status_code == 422,
+    )
+    check(
+        "exporting changes nothing",
+        {d["id"] for d in client.get("/api/documents", params={"status": "approved"}).json()}
+        == approved_ids,
     )
 
     # delete

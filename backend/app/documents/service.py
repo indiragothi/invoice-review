@@ -24,6 +24,7 @@ from app.documents.projection import (
     refresh_review_data,
 )
 from app.documents.repository import DocumentRepository
+from app.export.rows import Cell, ExportFacts, build_row
 from app.normalisation.assemble import normalise_extraction
 from app.pipeline.base import Extractor, LedgerSuggester, PipelineContext, run_pipeline
 from app.pipeline.steps import build_default_pipeline
@@ -173,6 +174,39 @@ class DocumentService:
         selected = (document.ledger or {}).get("selected_code")
         return approval_blockers(document.status, issues, selected)
 
+    # ------------------------------------------------------------------ export
+
+    def export_rows(self, client_id: str | None = None) -> list[dict[str, Cell]]:
+        """One row per **approved** document (oldest first), from the current normalised fields.
+        Nothing that is not approved is ever exported."""
+        if client_id is not None and client_id not in CLIENTS_BY_ID:
+            raise ClientNotFoundError(client_id)
+        approved = self.repository.list(status=DocumentStatus.APPROVED.value, client_id=client_id)
+        rows = []
+        for document in reversed(approved):  # the repository lists newest first
+            decisions = [h for h in document.history if h.get("event") == "decision"]
+            facts = ExportFacts(
+                document_id=document.id,
+                client=CLIENTS_BY_ID[document.client_id],
+                original_filename=document.original_filename,
+                ledger=document.ledger,
+                issues=[ValidationIssue.model_validate(i) for i in document.issues or []],
+                approved_at=decisions[-1]["at"] if decisions else None,
+            )
+            rows.append(build_row(self._parsed(document), facts))
+        return rows
+
+    @staticmethod
+    def _parsed(document: Document) -> Invoice | Receipt:
+        """The normalised document as it is now: the stored extraction with the review values."""
+        assert document.extraction is not None and document.review_data is not None
+        extraction = extraction_with_values(
+            Extraction.model_validate(document.extraction), document.review_data
+        )
+        parsed = normalise_extraction(extraction)
+        assert parsed is not None  # the type was checked when the document was processed
+        return parsed
+
     # ------------------------------------------------------------------ correction email
 
     def correction_email(self, document_id: str) -> tuple[EmailResult, list[ValidationIssue]]:
@@ -192,11 +226,7 @@ class DocumentService:
         issues = eligible_issues([ValidationIssue.model_validate(i) for i in document.issues or []])
         if not issues:
             raise ConflictError("There are no issues the supplier can fix.")
-        extraction = extraction_with_values(
-            Extraction.model_validate(document.extraction), document.review_data
-        )
-        parsed = normalise_extraction(extraction)
-        assert parsed is not None
+        parsed = self._parsed(document)
         result = self.email_drafter(parsed, CLIENTS_BY_ID[document.client_id], issues)
         codes = [i.code.value for i in issues]
         history = [*document.history, _event("correction_email_drafted", codes=codes)]
