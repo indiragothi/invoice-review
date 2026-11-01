@@ -63,6 +63,7 @@ uv run --locked --no-sync python ../playground/tax_samples.py          # tax che
 uv run --locked --no-sync python ../playground/rules_samples.py        # ground + normalise + rules vs manifest, offline
 uv run --locked --no-sync python ../playground/ledger_samples.py --split dev   # ledger vs manifest; cached, --fresh = 1 call/doc
 uv run --locked --no-sync python ../playground/pipeline_samples.py     # whole pipeline vs manifest, offline
+uv run --locked --no-sync python ../playground/repository_samples.py   # SQLite repository vs manifest, offline
 uv run --locked --no-sync pytest                                        # pure-module tests
 ```
 

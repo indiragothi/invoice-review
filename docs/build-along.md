@@ -531,3 +531,27 @@ Important locations: `backend/app/accounting/catalog.py`, `backend/tests/test_ca
 Not built yet: second reading + merge, `GET /api/accounting/ledgers`, storing and overriding the selected ledger (service / routes).
 
 Important locations: `backend/app/providers/prompts/ledger_v1.md`, `backend/app/providers/__init__.py`, `backend/app/pipeline/steps.py`, `playground/ledger_samples.py`.
+
+### Slice 23: SQLite `documents` table and repository  (milestone M3)
+
+- **Outcome:**
+  - `app/database.py`: `Base`, `create_db_engine(path)` (creates the tables; default file `backend/data/invoice_review.db`, git-ignored), `session_factory`.
+  - `app/documents/models.py`: the `Document` table from `architecture.md` section 7 (client, file facts, SHA-256, status, the stage JSON columns, issues, ledger, history, pipeline run, timestamps) and the `DocumentStatus` enum. `document_type` + JSON `duplicate_key` replace the three `norm_*` columns so receipts are covered (decision D14; ER diagram updated).
+  - `app/documents/repository.py`: `create`, `get`, `list(status, client_id)` (newest first), `update`, `delete`, `known_files(exclude_id)` (`{sha256: id}`, earliest upload wins) and `existing_keys(client_id, document_type, exclude_id)` (leaves out the document itself and rejected / failed records).
+  - `validation/duplicates.py`: `key_to_json` / `key_from_json`, so a stored key comes back equal to the one the rules compare (1 new test).
+  - `PipelineContext.existing_keys`: a loader `document type -> keys`, called by `ValidationStep` once the type is known. The service will pass the repository's method.
+  - `playground/repository_samples.py`: stores the 12 pipeline results in a throw-away database and reads them back.
+- **Why:** routes and the service need somewhere to keep reviews, and the two duplicate checks need data about earlier uploads. The repository holds only SQLAlchemy; the rules stay pure.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest
+  uv run --locked --no-sync python ../playground/repository_samples.py
+  ```
+
+- **Result:** 272 tests pass (1 new); ruff clean. On the 12 samples: 12/12 stored with the right statuses (8 `ready`, 4 `needs_review`); filters give 8 / 4 by status and 10 / 1 / 1 by client; each document is excluded from its own duplicate checks (12/12); uploading sample 01 again gives both `duplicate_file` and `duplicate_invoice`; a rejected record stops counting; delete works. No API calls, no new dependency (SQLAlchemy was already pinned).
+- **Checkpoint:** `repository_samples.py` prints `LIST 12/12 stored`, `SELF ... 12/12 file, 12/12 content`, `REUPLOAD ... duplicate_file=True duplicate_invoice=True` and `REJECTED ignored ... True`.
+
+Not built yet: the service (upload -> pipeline -> save), upload intake, routes. `review_data`, `classification`, `extraction` and `history` columns exist but nothing fills them yet (the projection comes with the service). The repository is not covered by pytest (database access, not a pure module); the playground run is its check. There are no migrations: delete `backend/data/*.db` after a schema change.
+
+Important locations: `backend/app/database.py`, `backend/app/documents/models.py`, `backend/app/documents/repository.py`, `playground/repository_samples.py`.

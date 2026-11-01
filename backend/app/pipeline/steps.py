@@ -60,7 +60,14 @@ class ValidationStep:
 
     def __call__(self, context: PipelineContext) -> None:
         assert context.document is not None
-        review = review_document(context.document, context.grounded, context.client, context.today)
+        existing = context.existing_keys(context.document.document_type)
+        review = review_document(
+            context.document,
+            context.grounded,
+            context.client,
+            context.today,
+            existing=existing,
+        )
         if issue := duplicate_file_issue(context.sha256, context.known_files):
             review.issues.append(issue)  # a warning: the status does not change
         context.review = review

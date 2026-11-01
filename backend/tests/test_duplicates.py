@@ -11,6 +11,8 @@ from app.validation.duplicates import (
     duplicate_file_issue,
     invoice_duplicate_issue,
     invoice_key,
+    key_from_json,
+    key_to_json,
     receipt_duplicate_issue,
     receipt_key,
 )
@@ -178,3 +180,10 @@ def test_duplicate_file_warns_on_same_hash_only():
     assert "doc-1" in issue.message
     assert duplicate_file_issue("zzz", {"abc": "doc-1"}) is None
     assert duplicate_file_issue("abc", {}) is None
+
+
+def test_keys_survive_a_json_round_trip():
+    invoice = InvoiceKey(GSTIN, "inv2627001", "2026-27")
+    receipt = ReceiptKey("shreefuels", date(2026, 9, 3), D("1250.50"))
+    assert key_from_json("invoice", key_to_json(invoice)) == invoice
+    assert key_from_json("receipt", key_to_json(receipt)) == receipt

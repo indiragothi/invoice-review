@@ -215,9 +215,8 @@ erDiagram
         string sha256
         int page_count
         string status
-        string norm_vendor_gstin "duplicate key"
-        string norm_invoice_number "duplicate key"
-        string financial_year "duplicate key"
+        string document_type "invoice or receipt"
+        json duplicate_key "invoice: GSTIN, number, FY; receipt: merchant, date, total (D14)"
         json reading "pages, words, boxes, text source"
         json classification
         json extraction "reading A + grounding"

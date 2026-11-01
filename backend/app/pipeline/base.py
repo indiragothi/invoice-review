@@ -20,11 +20,13 @@ from app.schemas.documents import Invoice, Receipt
 from app.schemas.extraction import Extraction
 from app.schemas.fields import GroundedField
 from app.schemas.ledger import LedgerSuggestion
+from app.validation.duplicates import InvoiceKey, ReceiptKey
 from app.validation.review import ReviewResult
 
 PipelineStatus = Literal["ready", "needs_review", "failed"]
 
 Extractor = Callable[[ReadDocument], ExtractionResult]
+ExistingKeys = Callable[[str], Mapping[str, InvoiceKey] | Mapping[str, ReceiptKey]]
 LedgerSuggester = Callable[[Invoice | Receipt, str], LedgerResult]  # (document, client name)
 
 
@@ -48,6 +50,8 @@ class PipelineContext:
     today: date = field(default_factory=date.today)
     reading_cache: ReadingCache | None = None
     known_files: Mapping[str, str] = field(default_factory=dict)  # {sha256: document id}
+    # document type -> {document id: key} of this client's other documents (the repository).
+    existing_keys: ExistingKeys = lambda _document_type: {}
 
     sha256: str = field(init=False)
     cache_hit: bool = False

@@ -14,6 +14,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from typing import Any
 
 from app.schemas.documents import Invoice, Receipt
 from app.schemas.issues import IssueCode, ValidationIssue, make_issue
@@ -45,6 +46,23 @@ class ReceiptKey:
     @property
     def text(self) -> str:
         return f"receipt|{self.merchant}|{self.on.isoformat()}|{self.total.normalize():f}"
+
+
+def key_to_json(key: InvoiceKey | ReceiptKey) -> dict[str, Any]:
+    """A plain dict for the database column; `key_from_json` restores an equal key."""
+    if isinstance(key, InvoiceKey):
+        return {
+            "vendor_gstin": key.vendor_gstin,
+            "invoice_number": key.invoice_number,
+            "financial_year": key.financial_year,
+        }
+    return {"merchant": key.merchant, "on": key.on.isoformat(), "total": str(key.total)}
+
+
+def key_from_json(document_type: str, data: Mapping[str, Any]) -> InvoiceKey | ReceiptKey:
+    if document_type == "invoice":
+        return InvoiceKey(data["vendor_gstin"], data["invoice_number"], data["financial_year"])
+    return ReceiptKey(data["merchant"], date.fromisoformat(data["on"]), Decimal(data["total"]))
 
 
 def invoice_key(invoice: Invoice) -> InvoiceKey | None:

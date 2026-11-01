@@ -11,7 +11,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 | M0 Plan | ✅ Done |
 | M1 Scaffold, samples, read + extract | ✅ Done (NVIDIA check optional, open) |
 | M2 Ground + validate | ✅ Done (`READINGS_DISAGREE` and `DUPLICATE_FILE` move to M3) |
-| M3 Pipeline + API | 🟨 In progress (slices 19-22 done) |
+| M3 Pipeline + API | 🟨 In progress (slices 19-23 done) |
 | M4 Review UI | ⬜ Not started |
 | M5 Evaluation | ⬜ Not started |
 | M6 Ship | ⬜ Not started |
@@ -106,12 +106,14 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 
 - [x] `PipelineContext` and `build_default_pipeline()`
 - [ ] Steps: reading → extraction → grounding → document review (second reading, merge) → validation → ledger suggestion *(reading, extraction, grounding, validation done; second reading and ledger to do)*
-- [ ] From M2: `READINGS_DISAGREE` warning and the 0.5 confidence cap (second reading); `existing` duplicate keys from the repository (skip the document itself, rejected and failed records)
+- [ ] From M2: `READINGS_DISAGREE` warning and the 0.5 confidence cap (second reading)
+- [x] `existing` duplicate keys and `known_files` from the repository (skips the document itself; rejected and failed records ignored)
 - [x] `DUPLICATE_FILE` warning (SHA-256); the repository must supply `known_files` later
 - [x] Cache readings by SHA-256
 - [x] Ledger catalog (`accounting/catalog.py`): 13 fixed ledgers, `checked_ledger_code` rejects anything else
 - [x] Ledger suggestion prompt (`ledger_v1`) + `LedgerStep` (one LLM call over normalised fields; code checks the code)
-- [ ] SQLite `documents` table, repository, service
+- [x] SQLite `documents` table and repository (`database.py`, `documents/models.py`, `documents/repository.py`)
+- [ ] Document service (upload -> pipeline -> save, state transitions)
 - [ ] Upload intake: magic bytes, 5 MB, 5 pages, stored as `<uuid>.<ext>`
 - [ ] Routes from `api-and-pipeline.md` (upload, list, get, file, page image, edit, ledger, decision, bulk approve, retry, delete, clients, ledgers)
 - [ ] Approval invariant: `409` with open errors or no ledger; decided records locked

@@ -77,3 +77,9 @@ The reference build is Dave Ebbelaar's [e2e-invoice-review](https://github.com/d
 **Context:** RapidOCR returns text lines without spaces. With `return_word_box=True` it also returns a box and confidence per character. Character boxes are approximate, so a word is occasionally split in the wrong place (e.g. `GSTIN: 27Q` + `WRCA7310M1ZK` on the degraded scan), and a few lines come back without character detail.
 **Decision:** Group characters into words by horizontal gap (> 0.45 × median character width); fall back to the whole line as one word when character detail is missing. A word's confidence is its lowest character confidence. Grounding must accept a value that spans several adjacent cited words (compare the joined text).
 **Consequence:** One doubtful character (the `O` in a GSTIN) makes the whole value doubtful, which is what review needs. Low-confidence thresholds must be tuned on OCR documents in M5; PDF text-layer words are always 1.0.
+
+## D14. One `duplicate_key` column instead of three `norm_*` columns
+
+**Context:** `architecture.md` listed `norm_vendor_gstin`, `norm_invoice_number` and `financial_year` as the duplicate key. That covers invoices only; the receipt key is merchant + date + total (`policy-rules.md`).
+**Decision:** The `documents` table has `document_type` and a JSON `duplicate_key` (the fields of the invoice or receipt key, see `validation/duplicates.py`), in place of the three columns. Uniqueness is not a database constraint: the rule is a blocking issue that the reviewer sees, not an insert error.
+**Consequence:** The repository rebuilds the exact key objects the pure rules compare. The ER diagram in `architecture.md` is updated.
