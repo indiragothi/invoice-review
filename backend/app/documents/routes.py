@@ -12,12 +12,14 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from app.config import APP_CONFIG
 from app.documents.intake import IntakeError
 from app.documents.models import Document, DocumentStatus
+from app.documents.projection import InvalidValueError, UnknownFieldError
 from app.documents.repository import DocumentRepository
 from app.documents.schemas import (
     BulkApproveRequest,
     BulkApproveResponse,
     DecisionRequest,
     DocumentResponse,
+    EditRequest,
     LedgerSelection,
 )
 from app.documents.service import (
@@ -128,6 +130,20 @@ def get_page(document_id: str, page: int, service: ServiceDep):
     except (DocumentNotFoundError, PageNotFoundError) as error:
         raise _not_found(error) from error
     return Response(png, media_type="image/png", headers={"X-Content-Type-Options": "nosniff"})
+
+
+@router.put("/{document_id}", response_model=DocumentResponse)
+def edit(document_id: str, body: EditRequest, service: ServiceDep):
+    try:
+        return service.edit(document_id, body.fields)
+    except DocumentNotFoundError as error:
+        raise _not_found(error) from error
+    except UnknownFieldError as error:
+        raise HTTPException(422, f"Unknown field: {error}") from error
+    except InvalidValueError as error:
+        raise HTTPException(422, str(error)) from error
+    except ConflictError as error:
+        raise HTTPException(409, str(error)) from error
 
 
 @router.put("/{document_id}/ledger", response_model=DocumentResponse)

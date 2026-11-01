@@ -306,6 +306,135 @@ def main() -> None:
         == 2,
     )
 
+    # field edits: review_data, source human, re-validation, status moves both ways
+    def edit(doc_id, fields):
+        return client.put(f"/api/documents/{doc_id}", json={"fields": fields})
+
+    def codes_of(response):
+        return [i["code"] for i in response.json()["issues"]]
+
+    mode.update(stem="05-invalid-vendor-gstin", fail=None)
+    r = upload(
+        APP_CONFIG.samples_dir / by_stem["05-invalid-vendor-gstin"]["file"], "05.pdf", "C001"
+    )
+    fix_id = r.json()["id"]
+    fields_before = r.json()["review_data"]["fields"]
+    check(
+        "review_data lists every field with value, source, confidence and evidence box",
+        r.json()["status"] == "needs_review"
+        and "vendor_gstin" in fields_before
+        and fields_before["vendor_gstin"]["evidence"]["box"] is not None
+        and fields_before["vendor_gstin"]["source"] == "pdf_text",
+        f"{len(fields_before)} fields",
+    )
+    wrong = fields_before["vendor_gstin"]["value"]
+    gstin_issue = next(i for i in r.json()["issues"] if i["code"] == "invalid_vendor_gstin")
+    good = gstin_issue["suggestion"]  # the one-character fix the app suggests
+    assert good and good != wrong, gstin_issue
+    r = edit(fix_id, {"vendor_gstin": good})
+    entry = r.json()["review_data"]["fields"]["vendor_gstin"]
+    check(
+        "fix the GSTIN -> human, confidence 1.0, original kept, status ready",
+        r.status_code == 200
+        and r.json()["status"] == "ready"
+        and entry["source"] == "human"
+        and entry["confidence"] == 1.0
+        and entry["original"] == wrong
+        and "invalid_vendor_gstin" not in codes_of(r),
+        f"{wrong} -> {good}",
+    )
+    last = r.json()["history"][-1]
+    check(
+        "the edit is in the history with from / to",
+        last["event"] == "edited"
+        and last["changes"]["vendor_gstin"] == {"from": wrong, "to": good},
+    )
+    r = edit(fix_id, {"vendor_gstin": good})
+    check(
+        "an unchanged value changes nothing",
+        r.status_code == 200
+        and len(r.json()["history"])
+        == len(client.get(f"/api/documents/{fix_id}").json()["history"]),
+    )
+    put_ledger(fix_id, "6140")
+    r = decide(fix_id, "approved")
+    check(
+        "edit -> select ledger -> approve works end to end",
+        r.status_code == 200 and r.json()["status"] == "approved",
+    )
+    check(
+        "edit an approved record -> 409", edit(fix_id, {"vendor_gstin": wrong}).status_code == 409
+    )
+
+    broken = ids["06-total-mismatch"]
+    printed = client.get(f"/api/documents/{broken}").json()["review_data"]["fields"]["total"][
+        "value"
+    ]
+    r = edit(broken, {"total": "75,138.00"})
+    check(
+        "fix the total -> blocking error gone, status ready, words warning left",
+        r.status_code == 200
+        and r.json()["status"] == "ready"
+        and "total_mismatch" not in codes_of(r)
+        and "amount_in_words_mismatch" in codes_of(r),
+        f"{printed} -> 75,138.00; {codes_of(r)}",
+    )
+
+    ok_doc = ids["02-intra-compact"]
+    r = edit(ok_doc, {"total": "999.00"})
+    check(
+        "a wrong total on a ready document -> needs_review with total_mismatch",
+        r.json()["status"] == "needs_review" and "total_mismatch" in codes_of(r),
+    )
+    original_total = r.json()["review_data"]["fields"]["total"]["original"]
+    r = edit(ok_doc, {"total": original_total})
+    check(
+        "put the original value back -> ready again",
+        r.json()["status"] == "ready" and "total_mismatch" not in codes_of(r),
+    )
+    r = edit(ok_doc, {"invoice_number": ""})
+    check(
+        "clearing the invoice number -> missing_invoice_number, needs_review",
+        r.json()["status"] == "needs_review"
+        and "missing_invoice_number" in codes_of(r)
+        and r.json()["review_data"]["fields"]["invoice_number"]["grounding"] == "missing",
+    )
+    first = client.get(f"/api/documents/{a}").json()["review_data"]["fields"]
+    r = edit(
+        ok_doc,
+        {
+            "invoice_number": first["invoice_number"]["value"],
+            "vendor_gstin": first["vendor_gstin"]["value"],
+            "invoice_date": first["invoice_date"]["value"],
+        },
+    )
+    check(
+        "edit into another invoice's key -> duplicate_invoice is found",
+        "duplicate_invoice" in codes_of(r) and r.json()["status"] == "needs_review",
+        str(codes_of(r)),
+    )
+
+    n_issues = len(client.get(f"/api/documents/{ok_doc}").json()["issues"])
+    r = edit(ok_doc, {"no_such_field": "x", "total": "1.00"})
+    check(
+        "unknown field -> 422 and nothing applied",
+        r.status_code == 422
+        and len(client.get(f"/api/documents/{ok_doc}").json()["issues"]) == n_issues,
+        r.json()["detail"],
+    )
+    check(
+        "line item that does not exist -> 422",
+        edit(ok_doc, {"line_items[40].hsn_sac": "1"}).status_code == 422,
+    )
+    check(
+        "value over 500 characters -> 422",
+        edit(ok_doc, {"vendor_name": "x" * 501}).status_code == 422,
+    )
+    check("empty edit -> 422", edit(ok_doc, {}).status_code == 422)
+    check("edit a failed document -> 409", edit(failed_doc, {"total": "1"}).status_code == 409)
+    check("edit a rejected document -> 409", edit(c, {"total": "1"}).status_code == 409)
+    check("edit an unknown document -> 404", edit("nope", {"total": "1"}).status_code == 404)
+
     # delete
     victim = ids["12-restaurant-receipt"]
     stored = {p.name for p in (WORK / "uploads").iterdir()}

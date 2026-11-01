@@ -15,16 +15,26 @@ from app.clients import CLIENTS_BY_ID
 from app.config import Settings
 from app.documents.intake import check_upload, new_stored_filename, save_upload, uploads_dir
 from app.documents.models import Document, DocumentStatus
+from app.documents.projection import (
+    apply_edits,
+    build_review_data,
+    extraction_with_values,
+    grounded_fields,
+    refresh_review_data,
+)
 from app.documents.repository import DocumentRepository
+from app.normalisation.assemble import normalise_extraction
 from app.pipeline.base import Extractor, LedgerSuggester, PipelineContext, run_pipeline
 from app.pipeline.steps import build_default_pipeline
 from app.providers import ProviderError
 from app.reader import render_images
 from app.reader.cache import ReadingCache, sha256_hex
 from app.reader.render import to_png_bytes
+from app.schemas.extraction import Extraction
 from app.schemas.issues import ValidationIssue
 from app.validation.approval import DECIDED, approval_blockers, rejection_blockers
-from app.validation.duplicates import invoice_key, key_to_json, receipt_key
+from app.validation.duplicates import duplicate_file_issue, invoice_key, key_to_json, receipt_key
+from app.validation.review import review_document
 
 
 class ClientNotFoundError(Exception):
@@ -157,6 +167,57 @@ class DocumentService:
         selected = (document.ledger or {}).get("selected_code")
         return approval_blockers(document.status, issues, selected)
 
+    # ------------------------------------------------------------------ editing
+
+    def edit(self, document_id: str, edits: dict[str, str | None]) -> Document:
+        """Apply the reviewer's corrections and run every rule again.
+
+        An edited field is the human's (source `human`, confidence 1.0). The status follows the
+        new result: an edit can fix a `needs_review` document or break a `ready` one.
+        Raises `UnknownFieldError` / `InvalidValueError` (nothing is changed) and `ConflictError`.
+        """
+        document = self.get(document_id)
+        if document.status in DECIDED:
+            raise ConflictError(f"The record is already {document.status} and locked.")
+        if document.status not in ("ready", "needs_review"):
+            raise ConflictError(f"A {document.status} document cannot be edited.")
+        if document.review_data is None or document.extraction is None:
+            raise ConflictError("This document has nothing to edit; upload it again.")
+
+        review_data, changes = apply_edits(document.review_data, edits)
+        if not changes:
+            return document
+        extraction = extraction_with_values(
+            Extraction.model_validate(document.extraction), review_data
+        )
+        parsed = normalise_extraction(extraction)
+        assert parsed is not None  # the type was checked when the document was processed
+        repository = self.repository
+        result = review_document(
+            parsed,
+            grounded_fields(review_data),
+            CLIENTS_BY_ID[document.client_id],
+            self.today(),
+            existing=repository.existing_keys(
+                document.client_id, parsed.document_type, exclude_id=document.id
+            ),
+        )
+        issues = list(result.issues)
+        if issue := duplicate_file_issue(
+            document.sha256, repository.known_files(exclude_id=document.id)
+        ):
+            issues.append(issue)
+        key = (invoice_key if parsed.document_type == "invoice" else receipt_key)(parsed)  # type: ignore[arg-type]
+        history = [*document.history, _event("edited", changes=changes, status=result.status)]
+        return repository.update(
+            document,
+            status=DocumentStatus(result.status),
+            review_data=refresh_review_data(review_data, result.fields),
+            issues=[i.model_dump(mode="json") for i in issues],
+            duplicate_key=key_to_json(key) if key else None,
+            history=history,
+        )
+
     # ------------------------------------------------------------------ upload / retry
 
     def upload(self, data: bytes, filename: str, client_id: str) -> Document:
@@ -252,6 +313,7 @@ class DocumentService:
                 document_type=context.document.document_type,
                 duplicate_key=key_to_json(key) if key else None,
                 issues=[i.model_dump(mode="json") for i in context.review.issues],
+                review_data=build_review_data(context.review.fields),
                 ledger={
                     "suggested_code": context.ledger.suggested_code,
                     "reason": context.ledger.reason,

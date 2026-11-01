@@ -2,7 +2,7 @@
 
 Target HTTP API for the backend. Implemented in milestone M3; keep this file in sync with the code.
 
-**Built so far:** `/health`, `GET /api/clients`, `GET /api/accounting/ledgers`, `POST` / `GET /api/documents`, `GET /api/documents/{id}`, `/file`, `/pages/{n}`, `PUT .../ledger`, `POST .../decision`, `POST /bulk-approve`, `POST .../retry`, `DELETE`. Not built yet: auth, `PUT` field edit, correction email, export.
+**Built so far:** `/health`, `GET /api/clients`, `GET /api/accounting/ledgers`, `POST` / `GET /api/documents`, `GET /api/documents/{id}`, `/file`, `/pages/{n}`, `PUT /api/documents/{id}` (field edit), `PUT .../ledger`, `POST .../decision`, `POST /bulk-approve`, `POST .../retry`, `DELETE`. Not built yet: auth, correction email, export.
 
 Base URL (local): `http://localhost:8000` · Swagger UI: `/docs` · CORS allows the Vite app at `http://localhost:5173` (or `ALLOWED_ORIGIN`).
 
@@ -44,6 +44,14 @@ Base URL (local): `http://localhost:8000` · Swagger UI: `/docs` · CORS allows 
 | `502` | Provider failed after retries; the record is saved as `failed` |
 
 A document that fails after it was saved (upload or retry) answers `502` (provider) or `422` (not an invoice or receipt, or no readable text) with a body `{ "detail": "...", "document": <DocumentResponse> }`; the record stays in the list as `failed` and can be retried (`failed` documents have `issues: []`).
+
+## Editing fields
+
+`PUT /api/documents/{id}` with `{ "fields": { "<path>": "<text>" | null } }` (1 to 200 entries). A path is one of the keys of `review_data.fields`: `vendor_gstin`, `invoice_date`, `total`, `line_items[2].taxable_amount`, `tax_lines[0].amount`, ... The value is the corrected text exactly as the reviewer types it (`"1,18,000.00"`, `"14-08-2026"`); `null` or empty clears the field. The server normalises it like any extracted value.
+
+An edited field gets `source: "human"`, `confidence: 1.0` and `grounding: "grounded"` (`"missing"` when cleared); `original` keeps the model's reading, and the history gets an `edited` entry with `{path: {from, to}}`. Then every rule runs again, including the duplicate checks, and the status follows the result: `needs_review` -> `ready` when the last blocking error is fixed, `ready` -> `needs_review` when an edit breaks a rule. A format cap still applies to a human value that fails its own format (an invalid GSTIN is capped at 0.3 and keeps its blocking error).
+
+`404` unknown document; `422` unknown path (nothing is applied), a value over 500 characters or an empty `fields`; `409` for a decided (`approved` / `rejected`), `failed` or `processing` document. Adding or removing line-item rows is not supported yet.
 
 ## Decisions
 

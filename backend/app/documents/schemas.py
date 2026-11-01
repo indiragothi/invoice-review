@@ -15,6 +15,13 @@ class LedgerState(BaseModel):
     overridden: bool = False
 
 
+class EditRequest(BaseModel):
+    """`{"fields": {"vendor_gstin": "27ABC...", "line_items[0].hsn_sac": null}}`. A path maps to
+    the corrected text, or null / empty to clear the value."""
+
+    fields: dict[str, str | None] = Field(min_length=1, max_length=200)
+
+
 class LedgerSelection(BaseModel):
     ledger_code: str
 

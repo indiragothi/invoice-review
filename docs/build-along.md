@@ -647,3 +647,27 @@ Important locations: `backend/app/documents/routes.py`, `backend/app/documents/s
 Not built yet: the `review_data` projection and `PUT` field edit (with source `human`, re-validation, lock of decided records), correction email, export, `READINGS_DISAGREE` / second reading.
 
 Important locations: `backend/app/validation/approval.py`, `backend/app/documents/service.py`, `backend/app/documents/routes.py`, `backend/tests/test_approval.py`, `playground/api_samples.py`.
+
+### Slice 28: `review_data` and field edits  (milestone M3)
+
+- **Outcome:**
+  - `documents/projection.py` (pure): `build_review_data(grounded_fields)` makes the flat, editable view saved in the `review_data` column: one entry per extracted value, addressed by path (`vendor_gstin`, `line_items[2].taxable_amount`, `tax_lines[0].amount`), each with `value`, `original` (the model's reading), `source`, `confidence`, `grounding`, `agreement` (empty until the second reading) and `evidence` (page, word ids, box). `apply_edits` returns a new `review_data` plus the real changes; an edited field becomes `human`, confidence 1.0, grounded (missing when cleared). `extraction_with_values` puts the review values back into the stored extraction so normalisation and the rules read them; `grounded_fields` and `refresh_review_data` convert back (the refresh keeps `original`).
+  - `DocumentService.edit(id, edits)`: refuses decided, failed or processing documents (409), applies the edits, then runs normalisation, `review_document` (format caps, all rules, duplicates against the repository) and the `DUPLICATE_FILE` warning again, and saves status, issues, `review_data`, `duplicate_key` and an `edited` history entry (`{path: {from, to}}`). An edit that changes nothing returns the document unchanged.
+  - The pipeline now saves `review_data` on every processed document.
+  - `PUT /api/documents/{id}` with `{ "fields": { path: text | null } }`; unknown path, over-long value or empty body -> 422 with nothing applied.
+- **Why:** the reviewer must be able to correct what the model got wrong, and every correction has to go through the same rules as an extracted value. Edits do not touch the stored reading-A extraction, so the audit trail still shows what the model said.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest tests/test_projection.py
+  uv run --locked --no-sync python ../playground/api_samples.py
+  ```
+
+- **Result:** 298 tests pass (8 new); ruff clean. `api_samples.py` passes 66/66 (18 new). On real samples: sample 05 (invalid vendor GSTIN) edited with the app's own one-character suggestion (`...E1ZE` -> `...E1Z7`) goes `needs_review` -> `ready`, the field is `human` / 1.0 with the original kept, then ledger + approve work end to end, and a further edit of the approved record is `409`. Sample 06 (printed total 76,138.00, true total 75,138.00): the fix removes `total_mismatch`, and the status is `ready` with the remaining `amount_in_words_mismatch` warning (the words still say 76,138). A wrong total on a ready document -> `needs_review` with `total_mismatch`; the original value back -> `ready`; clearing the invoice number -> `missing_invoice_number`; editing the vendor GSTIN, number and date of one invoice into another's -> `duplicate_invoice`. Unknown field, missing line item, over-long value and empty body are `422` and change nothing; failed and rejected documents `409`; unknown document `404`. No API calls, no new dependency.
+- **Bug found by the check, in the check:** the manifest's `vendor_gstin` for sample 05 is the printed (invalid) one, so my first "fix" sent the same value and four checks failed. The test now takes the corrected GSTIN from the issue's suggestion. No application code changed for that.
+- **What this does not show:** an edit is a text replacement; the box still points at the original words (there is no re-grounding of a human value, by design). Rows of a line-item table cannot be added or removed yet. Several readers editing at once are not handled (one user).
+- **Checkpoint:** `api_samples.py` ends with `API 66/66 checks passed`; `tests/test_projection.py` passes.
+
+Not built yet: correction email (eligibility + draft), export, second reading + `READINGS_DISAGREE` (fills `agreement`), password gate.
+
+Important locations: `backend/app/documents/projection.py`, `backend/app/documents/service.py` (`edit`), `backend/app/documents/routes.py`, `backend/tests/test_projection.py`, `playground/api_samples.py`.
