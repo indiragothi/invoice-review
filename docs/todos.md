@@ -11,7 +11,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 | M0 Plan | ✅ Done |
 | M1 Scaffold, samples, read + extract | ✅ Done (NVIDIA check optional, open) |
 | M2 Ground + validate | ✅ Done (`READINGS_DISAGREE` and `DUPLICATE_FILE` move to M3) |
-| M3 Pipeline + API | 🟨 In progress (slices 19-28 done) |
+| M3 Pipeline + API | 🟨 In progress (slices 19-29 done) |
 | M4 Review UI | ⬜ Not started |
 | M5 Evaluation | ⬜ Not started |
 | M6 Ship | ⬜ Not started |
@@ -119,7 +119,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [x] Routes, part 2a: ledger selection, decision (approve / reject), bulk approve
 - [x] `review_data` projection (`documents/projection.py`) and field edit `PUT /api/documents/{id}`: source `human`, confidence 1.0, every rule re-run, status moves both ways, decided records locked
 - [x] Approval invariant: `409` with open errors or no ledger; decided records locked (`validation/approval.py` + `DocumentService`); edits of a decided record are locked with the edit route
-- [ ] Correction email: eligibility codes + draft endpoint
+- [x] Correction email: fixed eligibility codes (`correction_email/eligibility.py`) + draft endpoint `POST .../correction-email` (prompt `email_v1`, dev split only)
 - [ ] Export: CSV / XLSX, approved only, formula-injection safe
 - [x] Retry with backoff on `429` / 5xx (`providers/retry.py`); `failed` + provider error after retries (the HTTP `502` comes with the routes)
 - [x] Pipeline run trace (provider, model, prompt versions, calls, ms per step) saved in `pipeline_run`

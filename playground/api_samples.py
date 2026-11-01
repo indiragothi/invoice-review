@@ -16,6 +16,7 @@ sys.path.insert(0, str(BACKEND))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import pymupdf  # noqa: E402
+from email_samples import cached_draft  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from pipeline_samples import cached_extractor, cached_ledger_suggester  # noqa: E402
 
@@ -51,7 +52,13 @@ def main() -> None:
         return cached_ledger_suggester(mode["stem"])(document, client_name)
 
     shutil.rmtree(WORK, ignore_errors=True)
-    client = TestClient(create_app(WORK, extractor, ledger))
+
+    def drafter(_document, _client, _issues):
+        if mode["fail"] == "email":
+            raise ProviderError("The AI provider is busy. Retry later.", busy=True)
+        return cached_draft(mode["stem"], "email_v1")
+
+    client = TestClient(create_app(WORK, extractor, ledger, drafter))
 
     def upload(path_or_bytes, name, client_id):
         data = path_or_bytes.read_bytes() if isinstance(path_or_bytes, Path) else path_or_bytes
@@ -434,6 +441,63 @@ def main() -> None:
     check("edit a failed document -> 409", edit(failed_doc, {"total": "1"}).status_code == 409)
     check("edit a rejected document -> 409", edit(c, {"total": "1"}).status_code == 409)
     check("edit an unknown document -> 404", edit("nope", {"total": "1"}).status_code == 404)
+
+    # correction email: eligibility is fixed code; the draft is text only
+    mode.update(stem="08-buyer-not-client", fail=None)
+    r = upload(APP_CONFIG.samples_dir / by_stem["08-buyer-not-client"]["file"], "08.pdf", "C001")
+    mail_id = r.json()["id"]
+    flagged = [i for i in r.json()["issues"] if i["supplier_fixable"]]
+    check(
+        "issues say whether the supplier can fix them",
+        r.json()["supplier_action_required"] is True
+        and [i["code"] for i in flagged] == ["buyer_not_client"],
+        str([(i["code"], i["supplier_fixable"]) for i in r.json()["issues"]]),
+    )
+    r = client.post(f"/api/documents/{mail_id}/correction-email")
+    check(
+        "draft the correction email -> 200 with subject, body and the eligible codes",
+        r.status_code == 200
+        and r.json()["issue_codes"] == ["buyer_not_client"]
+        and "RP/RENT/26-27/07" in r.json()["subject"]
+        and "23QXGPS4821K1ZU" in r.json()["body"],
+        r.json()["subject"],
+    )
+    check(
+        "the draft is recorded in the history, nothing is sent or stored",
+        client.get(f"/api/documents/{mail_id}").json()["history"][-1]["event"]
+        == "correction_email_drafted",
+    )
+    mode["fail"] = "email"
+    check(
+        "provider failure while drafting -> 502",
+        client.post(f"/api/documents/{mail_id}/correction-email").status_code == 502,
+    )
+    mode["fail"] = None
+    r = edit(mail_id, {"buyer_gstin": "23QXGPS4821K1ZU"})
+    check(
+        "fix the buyer GSTIN -> nothing left for the supplier, no email",
+        r.json()["supplier_action_required"] is False
+        and client.post(f"/api/documents/{mail_id}/correction-email").status_code == 409,
+        r.json()["status"],
+    )
+    check(
+        "a document with no supplier-fixable issue -> 409",
+        client.post(f"/api/documents/{a}/correction-email").status_code == 409,
+    )
+    check(
+        "a failed document -> 409",
+        client.post(f"/api/documents/{failed_doc}/correction-email").status_code == 409,
+    )
+    check(
+        "an unknown document -> 404",
+        client.post("/api/documents/nope/correction-email").status_code == 404,
+    )
+    listing = client.get("/api/documents").json()
+    check(
+        "every listed document carries supplier_action_required",
+        all(isinstance(d["supplier_action_required"], bool) for d in listing),
+        f"{sum(d['supplier_action_required'] for d in listing)} of {len(listing)} need action",
+    )
 
     # delete
     victim = ids["12-restaurant-receipt"]

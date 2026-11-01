@@ -6,8 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import APP_CONFIG, get_settings
 from app.database import create_db_engine, session_factory
 from app.documents import routes as document_routes
+from app.documents.service import EmailDrafter
 from app.pipeline.base import Extractor, LedgerSuggester
-from app.providers import extract, suggest_ledger
+from app.providers import draft_correction_email, extract, suggest_ledger
 from app.reader.cache import ReadingCache
 from app.reference_routes import router as reference_router
 
@@ -16,6 +17,7 @@ def create_app(
     data_dir: Path | None = None,
     extractor: Extractor | None = None,
     ledger_suggester: LedgerSuggester | None = None,
+    email_drafter: EmailDrafter | None = None,
 ) -> FastAPI:
     """Build the app. The arguments exist so a check can use a temporary folder and cached model
     answers; the running server passes none of them and uses `backend/data/` and the real models."""
@@ -38,6 +40,10 @@ def create_app(
     app.state.extractor = extractor or (lambda reading: extract(reading, settings))
     app.state.ledger_suggester = ledger_suggester or (
         lambda document, client_name: suggest_ledger(document, client_name, settings)
+    )
+
+    app.state.email_drafter = email_drafter or (
+        lambda document, client, issues: draft_correction_email(document, client, issues, settings)
     )
 
     app.include_router(reference_router)

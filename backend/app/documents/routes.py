@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import FileResponse, JSONResponse, Response
 
 from app.config import APP_CONFIG
+from app.correction_email.schemas import CorrectionEmailResponse
 from app.documents.intake import IntakeError
 from app.documents.models import Document, DocumentStatus
 from app.documents.projection import InvalidValueError, UnknownFieldError
@@ -30,6 +31,7 @@ from app.documents.service import (
     LedgerNotFoundError,
     PageNotFoundError,
 )
+from app.providers import ProviderError
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -44,6 +46,7 @@ def get_service(request: Request) -> Iterator[DocumentService]:
             state.extractor,
             state.ledger_suggester,
             reading_cache=state.reading_cache,
+            email_drafter=state.email_drafter,
             data_dir=state.data_dir,
         )
 
@@ -166,6 +169,23 @@ def decide(document_id: str, body: DecisionRequest, service: ServiceDep):
         raise _not_found(error) from error
     except ConflictError as error:
         raise HTTPException(409, str(error)) from error
+
+
+@router.post("/{document_id}/correction-email", response_model=CorrectionEmailResponse)
+def correction_email(document_id: str, service: ServiceDep):
+    try:
+        result, issues = service.correction_email(document_id)
+    except DocumentNotFoundError as error:
+        raise _not_found(error) from error
+    except ConflictError as error:
+        raise HTTPException(409, str(error)) from error
+    except ProviderError as error:
+        raise HTTPException(502, str(error)) from error
+    return CorrectionEmailResponse(
+        subject=result.draft.subject,
+        body=result.draft.body,
+        issue_codes=[i.code.value for i in issues],
+    )
 
 
 @router.post("/{document_id}/retry", response_model=DocumentResponse)

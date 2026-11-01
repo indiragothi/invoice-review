@@ -671,3 +671,31 @@ Important locations: `backend/app/validation/approval.py`, `backend/app/document
 Not built yet: correction email (eligibility + draft), export, second reading + `READINGS_DISAGREE` (fills `agreement`), password gate.
 
 Important locations: `backend/app/documents/projection.py`, `backend/app/documents/service.py` (`edit`), `backend/app/documents/routes.py`, `backend/tests/test_projection.py`, `playground/api_samples.py`.
+
+### Slice 29: Correction email  (milestone M3)
+
+- **Outcome:**
+  - `correction_email/eligibility.py` (pure): `SUPPLIER_FIXABLE`, the 14 codes of `policy-rules.md`, `is_supplier_fixable`, `eligible_issues`. Our own problems (ungrounded, ambiguous date, low confidence, readings disagree, duplicates) are never eligible, and eligibility ignores severity (a missing HSN warning counts).
+  - `providers/prompts/email_v1.md` and `providers.draft_correction_email(document, client, issues, settings)`: one call, structured output `EmailDraft(subject, body)`. The input is only normalised facts (buyer and GSTIN, supplier, invoice number, date, total) plus the eligible issues with their suggested fixes, delimited as data. The prompt asks for a polite request for a corrected invoice or credit note, at most 170 words, only facts from the input, a correction stated as a possibility, no tax or legal advice, no mention of the app or its codes, and a `[Your name]` signature.
+  - `DocumentService.correction_email(id)` rebuilds the normalised document from the current `review_data` (so edits count), takes the eligible issues, calls the drafter, and writes a `correction_email_drafted` history entry. `POST /api/documents/{id}/correction-email` returns subject, body and the issue codes.
+  - Responses: each issue has `supplier_fixable`, each document `supplier_action_required` (the UI can show the button only when it is true).
+  - `create_app(..., email_drafter)` like the other injectable model calls.
+- **Why:** when the supplier made the mistake, Priya needs the request ready to send (demo document 2). The code decides what the supplier can fix; the model only writes the words.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync python ../playground/email_samples.py --dry          # offline: candidates and calls needed
+  uv run --locked --no-sync python ../playground/email_samples.py --split dev    # 3 API calls (done once, then cached)
+  uv run --locked --no-sync pytest tests/test_eligibility.py
+  uv run --locked --no-sync python ../playground/api_samples.py
+  ```
+
+- **Live calls used:** 3 (`gemini-3.5-flash-lite`, dev documents 05 invalid GSTIN, 07 wrong tax split, 08 buyer is not the client), 618-662 input and 170-207 output tokens, 1.4-1.9 s each. Only these three dev documents have supplier-fixable issues.
+- **Result:** 302 tests pass (4 new); ruff clean. The three drafts pass the automatic checks (every number in the draft is in the input, no internal words such as issue codes, under 200 words, signature block). I read them: each names the invoice number and date, 05 offers the checksum fix as "it looks like the GSTIN may be ... please confirm", 07 says IGST is charged on a supply within the same state, 08 gives the client's correct name and GSTIN. `api_samples.py` passes 75/75 (9 new): the flags on issues and documents, a draft with the right subject and GSTIN, the history entry, `502` on a provider failure, `409` once the buyer GSTIN is fixed, `409` for a document with nothing the supplier can fix and for a failed one, `404` for an unknown one.
+- **Bug caught by an existing check:** my new "mark supplier-fixable" validator ran before the one that turns an empty `issues` column into `[]`, so the `502` / `422` answer for a failed document crashed again. Fixed in the validator; the earlier check found it.
+- **What this does not show:** quality beyond three documents and one run each; these are the three easiest cases (a single issue each). The prompt was written once and not tuned. Several issues in one email, a receipt, and the wording in other tones are untested. Test-split documents (06 total mismatch, and others) have no draft yet; they are for M5.
+- **Checkpoint:** `email_samples.py --split dev` shows `DRAFTS passing the automatic checks: 3/3` from the cache with `0 need a model call`; `api_samples.py` ends with `API 75/75 checks passed`.
+
+Not built yet: export, second reading + `READINGS_DISAGREE`, password gate.
+
+Important locations: `backend/app/correction_email/`, `backend/app/providers/prompts/email_v1.md`, `backend/app/providers/__init__.py`, `backend/app/documents/service.py`, `playground/email_samples.py`.

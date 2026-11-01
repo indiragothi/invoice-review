@@ -11,8 +11,9 @@ from pathlib import Path
 from typing import Any
 
 from app.accounting.catalog import checked_ledger_code
-from app.clients import CLIENTS_BY_ID
+from app.clients import CLIENTS_BY_ID, Client
 from app.config import Settings
+from app.correction_email.eligibility import eligible_issues
 from app.documents.intake import check_upload, new_stored_filename, save_upload, uploads_dir
 from app.documents.models import Document, DocumentStatus
 from app.documents.projection import (
@@ -26,15 +27,18 @@ from app.documents.repository import DocumentRepository
 from app.normalisation.assemble import normalise_extraction
 from app.pipeline.base import Extractor, LedgerSuggester, PipelineContext, run_pipeline
 from app.pipeline.steps import build_default_pipeline
-from app.providers import ProviderError
+from app.providers import EmailResult, ProviderError
 from app.reader import render_images
 from app.reader.cache import ReadingCache, sha256_hex
 from app.reader.render import to_png_bytes
+from app.schemas.documents import Invoice, Receipt
 from app.schemas.extraction import Extraction
 from app.schemas.issues import ValidationIssue
 from app.validation.approval import DECIDED, approval_blockers, rejection_blockers
 from app.validation.duplicates import duplicate_file_issue, invoice_key, key_to_json, receipt_key
 from app.validation.review import review_document
+
+EmailDrafter = Callable[[Invoice | Receipt, Client, list[ValidationIssue]], EmailResult]
 
 
 class ClientNotFoundError(Exception):
@@ -69,6 +73,7 @@ class DocumentService:
         extractor: Extractor,
         ledger_suggester: LedgerSuggester,
         reading_cache: ReadingCache | None = None,
+        email_drafter: EmailDrafter | None = None,
         data_dir: Path | None = None,
         today: Callable[[], date] = date.today,
     ) -> None:
@@ -77,6 +82,7 @@ class DocumentService:
         self.extractor = extractor
         self.ledger_suggester = ledger_suggester
         self.reading_cache = reading_cache
+        self.email_drafter = email_drafter
         self.data_dir = data_dir
         self.today = today
 
@@ -166,6 +172,36 @@ class DocumentService:
         issues = [ValidationIssue.model_validate(i) for i in document.issues or []]
         selected = (document.ledger or {}).get("selected_code")
         return approval_blockers(document.status, issues, selected)
+
+    # ------------------------------------------------------------------ correction email
+
+    def correction_email(self, document_id: str) -> tuple[EmailResult, list[ValidationIssue]]:
+        """Draft (never send) an email asking the supplier to fix what only the supplier can.
+
+        The issues come from the fixed eligibility list, not from the model, and the draft is
+        built from the current (possibly edited) normalised fields, never from the file.
+        `ProviderError` passes through when the model call fails.
+        """
+        document = self.get(document_id)
+        if document.status in ("processing", "failed"):
+            raise ConflictError(f"A {document.status} document has nothing to write about.")
+        if document.review_data is None or document.extraction is None:
+            raise ConflictError("This document has nothing to write about; upload it again.")
+        if self.email_drafter is None:
+            raise RuntimeError("No email drafter is configured.")
+        issues = eligible_issues([ValidationIssue.model_validate(i) for i in document.issues or []])
+        if not issues:
+            raise ConflictError("There are no issues the supplier can fix.")
+        extraction = extraction_with_values(
+            Extraction.model_validate(document.extraction), document.review_data
+        )
+        parsed = normalise_extraction(extraction)
+        assert parsed is not None
+        result = self.email_drafter(parsed, CLIENTS_BY_ID[document.client_id], issues)
+        codes = [i.code.value for i in issues]
+        history = [*document.history, _event("correction_email_drafted", codes=codes)]
+        self.repository.update(document, history=history)
+        return result, issues
 
     # ------------------------------------------------------------------ editing
 

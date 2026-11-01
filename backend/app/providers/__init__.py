@@ -17,16 +17,20 @@ from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from app.accounting.catalog import catalog_for_prompt
+from app.clients import Client
 from app.config import APP_CONFIG, Settings
+from app.correction_email.schemas import EmailDraft
 from app.providers.retry import ProviderError, retry_with_backoff
 from app.reader.schemas import ReadDocument
 from app.schemas.documents import Invoice, Receipt
 from app.schemas.extraction import Extraction
+from app.schemas.issues import ValidationIssue
 from app.schemas.ledger import LedgerChoice
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 EXTRACT_PROMPT = "extract_v2"
 LEDGER_PROMPT = "ledger_v1"
+EMAIL_PROMPT = "email_v1"
 
 _BUSY_STATUS = {429, 500, 502, 503, 504}
 
@@ -171,6 +175,80 @@ def suggest_ledger(
     usage = result.usage
     return LedgerResult(
         choice=result.output,
+        call=CallInfo(
+            provider=settings.llm_provider,
+            model=settings.active_model,
+            prompt_version=prompt_version,
+            input_tokens=usage.input_tokens or 0,
+            output_tokens=usage.output_tokens or 0,
+            seconds=round(time.perf_counter() - started, 2),
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class EmailResult:
+    draft: EmailDraft
+    call: CallInfo
+
+
+def _shown_date(document: Invoice | Receipt) -> str:
+    when = document.invoice_date if isinstance(document, Invoice) else document.receipt_date
+    return when.value.strftime("%d-%m-%Y") if when.value else "not readable"
+
+
+def format_for_email(
+    document: Invoice | Receipt, client: Client, issues: list[ValidationIssue]
+) -> tuple[str, str]:
+    """`(document facts, problems)` for the draft. Normalised values only, never the file."""
+    if isinstance(document, Invoice):
+        facts = [
+            f"Buyer: {client.name}",
+            f"Buyer GSTIN: {client.gstin}",
+            f"Supplier: {document.vendor_name}",
+            f"Supplier GSTIN: {document.vendor_gstin}",
+            f"Invoice number: {document.invoice_number}",
+        ]
+    else:
+        facts = [
+            f"Buyer: {client.name}",
+            f"Buyer GSTIN: {client.gstin}",
+            f"Supplier: {document.merchant_name}",
+            f"Supplier GSTIN: {document.vendor_gstin}",
+            f"Receipt number: {document.receipt_number}",
+        ]
+    facts += [f"Date: {_shown_date(document)}", f"Total: {document.total}"]
+    problems = []
+    for issue in issues:
+        line = f"- {issue.code.value}: {issue.message}"
+        if issue.suggestion:
+            line += f" Suggested correction: {issue.suggestion}"
+        problems.append(line)
+    return "\n".join(facts), "\n".join(problems)
+
+
+def draft_correction_email(
+    document: Invoice | Receipt,
+    client: Client,
+    issues: list[ValidationIssue],
+    settings: Settings,
+    prompt_version: str = EMAIL_PROMPT,
+) -> EmailResult:
+    """One LLM call: a draft asking the supplier to fix the given (eligible) issues.
+    The caller chooses the issues with `eligible_issues`; nothing is ever sent."""
+    agent = Agent(
+        build_model(settings),
+        output_type=EmailDraft,
+        instructions=load_prompt(prompt_version),
+        retries=1,
+    )
+    facts, problems = format_for_email(document, client, issues)
+    prompt = f"<document>\n{facts}\n</document>\n<problems>\n{problems}\n</problems>"
+    started = time.perf_counter()
+    result = _run_agent(agent, prompt)
+    usage = result.usage
+    return EmailResult(
+        draft=result.output,
         call=CallInfo(
             provider=settings.llm_provider,
             model=settings.active_model,

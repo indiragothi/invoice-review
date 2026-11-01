@@ -62,6 +62,7 @@ uv run --locked --no-sync python ../playground/compare_prompts.py extract_v1 ext
 uv run --locked --no-sync python ../playground/tax_samples.py          # tax checks vs manifest, offline
 uv run --locked --no-sync python ../playground/rules_samples.py        # ground + normalise + rules vs manifest, offline
 uv run --locked --no-sync python ../playground/ledger_samples.py --split dev   # ledger vs manifest; cached, --fresh = 1 call/doc
+uv run --locked --no-sync python ../playground/email_samples.py --dry            # correction-email candidates; --split dev = 1 call each, cached
 uv run --locked --no-sync python ../playground/pipeline_samples.py     # whole pipeline vs manifest, offline
 uv run --locked --no-sync python ../playground/repository_samples.py   # SQLite repository vs manifest, offline
 uv run --locked --no-sync python ../playground/intake_samples.py       # upload intake on samples + bad files, offline

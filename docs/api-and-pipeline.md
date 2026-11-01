@@ -2,7 +2,7 @@
 
 Target HTTP API for the backend. Implemented in milestone M3; keep this file in sync with the code.
 
-**Built so far:** `/health`, `GET /api/clients`, `GET /api/accounting/ledgers`, `POST` / `GET /api/documents`, `GET /api/documents/{id}`, `/file`, `/pages/{n}`, `PUT /api/documents/{id}` (field edit), `PUT .../ledger`, `POST .../decision`, `POST /bulk-approve`, `POST .../retry`, `DELETE`. Not built yet: auth, correction email, export.
+**Built so far:** `/health`, `GET /api/clients`, `GET /api/accounting/ledgers`, `POST` / `GET /api/documents`, `GET /api/documents/{id}`, `/file`, `/pages/{n}`, `PUT /api/documents/{id}` (field edit), `PUT .../ledger`, `POST .../decision`, `POST /bulk-approve`, `POST .../correction-email`, `POST .../retry`, `DELETE`. Not built yet: auth, export.
 
 Base URL (local): `http://localhost:8000` · Swagger UI: `/docs` · CORS allows the Vite app at `http://localhost:5173` (or `ALLOWED_ORIGIN`).
 
@@ -53,6 +53,12 @@ An edited field gets `source: "human"`, `confidence: 1.0` and `grounding: "groun
 
 `404` unknown document; `422` unknown path (nothing is applied), a value over 500 characters or an empty `fields`; `409` for a decided (`approved` / `rejected`), `failed` or `processing` document. Adding or removing line-item rows is not supported yet.
 
+## Correction email
+
+`POST /api/documents/{id}/correction-email` (no body) -> `200 { "subject", "body", "issue_codes" }`. The app only **drafts** text; the reviewer copies it into their own email client, and there is no code that sends mail. The issues come from the fixed supplier-fixable list (`policy-rules.md`), never from the model; the draft is written from the current normalised fields (including the reviewer's edits), not from the file. One LLM call per draft.
+
+`404` unknown document; `409` when the document is `processing` / `failed` or has no supplier-fixable issue; `502` when the provider fails after the retries. The draft is not stored; the history gets a `correction_email_drafted` entry with the issue codes.
+
 ## Decisions
 
 - `PUT /api/documents/{id}/ledger` `{ "ledger_code": "6130" }` sets `ledger.selected_code` (the reviewer confirms the suggestion or overrides it; `overridden` is true when it differs). Unknown code -> `404`; decided or not yet processed document -> `409`. The suggestion is never selected automatically.
@@ -70,10 +76,10 @@ An edited field gets `source: "human"`, `confidence: 1.0` and `grounding: "groun
 | `classification` | object \| null | `invoice` / `receipt` + reason |
 | `review_data` | object \| null | Flat editable fields; each with value, source, confidence, agreement, evidence box (see [architecture.md](architecture.md#7-persistence)) |
 | `document_review` | object \| null | Second-reading comparison per field |
-| `issues` | array | `{ code, severity, field, message, suggestion }`; `supplier_fixable` is added with the correction-email slice |
+| `issues` | array | `{ code, severity, field, message, suggestion }`; `supplier_fixable` is true when the supplier can fix it (fixed list) |
 | `ledger` | object \| null | `{ suggested_code, reason, selected_code, overridden }` |
 | `document_type` | string \| null | `invoice` or `receipt` |
-| `supplier_action_required` | bool | True when supplier-fixable issues exist *(not built yet)* |
+| `supplier_action_required` | bool | True when at least one issue is supplier-fixable |
 | `history` | array | Edits and decisions |
 | `pipeline_run` | object \| null | Provider, model, prompt version, API calls, milliseconds |
 | `error_message` | string \| null | Set when `failed` |
