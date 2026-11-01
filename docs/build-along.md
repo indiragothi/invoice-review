@@ -723,3 +723,28 @@ Important locations: `backend/app/correction_email/`, `backend/app/providers/pro
 Not built yet (M3): the second reading + merge (`READINGS_DISAGREE`, 0.5 cap, `agreement` per field) and the final `curl` walkthrough of M3's exit criteria. The password gate is M6.
 
 Important locations: `backend/app/export/`, `backend/app/documents/service.py` (`export_rows`), `backend/tests/test_export.py`, `backend/pyproject.toml`, `backend/uv.lock`.
+
+### Slice 31: Second reading (reading B), comparison and gap fill  (milestone M3, part 1 of 2)
+
+Proved in `playground/` first (CLAUDE.md); the wiring into the pipeline is slice 32.
+
+- **Outcome:**
+  - `providers/prompts/review_v1.md` and `providers.review_from_images(images, document_type, settings)`: reading B. One call with all page images (PNG), structured output `SecondReading`. The model sees **neither reading A nor the numbered words**, so the two readings are independent. `_run_agent` now also takes images (`BinaryContent`) and keeps the same retry / `ProviderError` handling.
+  - `schemas/second_reading.py`: plain values (no evidence IDs), with the same field names as `Extraction`.
+  - `pipeline/agreement.py` (pure): `compare_and_fill(extraction_a, reading_b, document)` returns the merged extraction and the agreement per field path. `agree` = same value after normalisation (GSTIN without spaces, dates as dates, amounts as `Decimal`, percentages, state codes, `20 ream` = `20`, names ignoring case and punctuation, one name inside the other when 5+ characters); `differ`; `missing` (one reading has no value); `filled` (A had none, B supplied one **and code found it in the page words**, which gives it a box). A's own values are never replaced. Rows that exist in one reading only are one table-level difference (`line_items`, `tax_lines`). `locate_value` finds a whole value on one printed line, never inside a longer number.
+  - `validation/agreement.py` (pure): `apply_agreement_caps` (differ or filled -> confidence at most 0.5; never raises a value) and `readings_disagree_issues` (one `READINGS_DISAGREE` warning per differing field).
+- **Why:** the project's answer to "can the model be wrong without noticing?": a second look that is independent, a value counted only if it is in the page words, and a disagreement that lowers confidence and sends the document to the reviewer. Whether it is worth the extra call is decided in M5.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest tests/test_agreement.py
+  uv run --locked --no-sync python ../playground/second_reading_samples.py --split dev   # 7 API calls (done once, then cached)
+  ```
+
+- **Live calls used:** 7 (`gemini-3.5-flash-lite`, vision, dev documents 01, 03, 05, 07, 08, 09, 11; the first was a one-call smoke test of image input). About 2,190 input tokens for a one-page document (3,280 for the two-page one), 200-2,530 output tokens, 3-9 s each.
+- **Result:** 10 tests (new) pass; ruff clean. Reading B on the dev split: **91/91** manifest fields right (reading A in the playground: 90/91). Of 361 compared fields: 359 agree, 2 differ, 0 missing, 0 filled. The two: (1) sample 09, B read "Iodised salt" as "Lodised salt" (A was right): exactly what a disagreement warning is for; (2) sample 11, A has no line items and B has one, but the playground's reading A is the old `extract_v1` (the app uses `extract_v2`, which finds the fuel row), so that is a stale-cache effect, not a real disagreement.
+- **Bug found by the live run:** `20 ream` (A) against `20` (B) was reported as a difference for three quantities in sample 01. Quantity is now compared by its leading number (test added). Without this every invoice with units would have been flagged.
+- **What this does not show:** the dev samples are clean, so the second reading had almost nothing to catch: it neither found an error of A nor filled a gap (0 `filled`, 0 `missing`). The `filled` path is only tested with fake data, not with a live example. Whether `on_doubt` or `always` is worth a call needs the degraded documents of M5. Cost: about as many input tokens as the whole extraction call, and 3-9 s more per document.
+- **Checkpoint:** `second_reading_samples.py --split dev` prints `B right 91/91` from the cache.
+
+Important locations: `backend/app/pipeline/agreement.py`, `backend/app/validation/agreement.py`, `backend/app/providers/prompts/review_v1.md`, `backend/app/schemas/second_reading.py`, `playground/second_reading_samples.py`.

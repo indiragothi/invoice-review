@@ -5,10 +5,12 @@ back. Switching provider is the `LLM_PROVIDER` setting.
 """
 
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from pydantic_ai import Agent
+from PIL import Image
+from pydantic_ai import Agent, BinaryContent
 from pydantic_ai.exceptions import ModelAPIError, ModelHTTPError, UnexpectedModelBehavior
 from pydantic_ai.models import Model
 from pydantic_ai.models.google import GoogleModel
@@ -21,16 +23,19 @@ from app.clients import Client
 from app.config import APP_CONFIG, Settings
 from app.correction_email.schemas import EmailDraft
 from app.providers.retry import ProviderError, retry_with_backoff
+from app.reader.render import to_png_bytes
 from app.reader.schemas import ReadDocument
 from app.schemas.documents import Invoice, Receipt
 from app.schemas.extraction import Extraction
 from app.schemas.issues import ValidationIssue
 from app.schemas.ledger import LedgerChoice
+from app.schemas.second_reading import SecondReading
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 EXTRACT_PROMPT = "extract_v2"
 LEDGER_PROMPT = "ledger_v1"
 EMAIL_PROMPT = "email_v1"
+REVIEW_PROMPT = "review_v1"
 
 _BUSY_STATUS = {429, 500, 502, 503, 504}
 
@@ -39,7 +44,7 @@ def _is_busy(error: Exception) -> bool:
     return isinstance(error, ModelHTTPError) and error.status_code in _BUSY_STATUS
 
 
-def _run_agent[T](agent: Agent[None, T], prompt: str):
+def _run_agent[T](agent: Agent[None, T], prompt: str | Sequence[str | BinaryContent]):
     """Run one agent call with retry on 429 / 5xx; SDK errors become `ProviderError`."""
     try:
         return retry_with_backoff(
@@ -249,6 +254,44 @@ def draft_correction_email(
     usage = result.usage
     return EmailResult(
         draft=result.output,
+        call=CallInfo(
+            provider=settings.llm_provider,
+            model=settings.active_model,
+            prompt_version=prompt_version,
+            input_tokens=usage.input_tokens or 0,
+            output_tokens=usage.output_tokens or 0,
+            seconds=round(time.perf_counter() - started, 2),
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class SecondReadingResult:
+    reading: SecondReading
+    call: CallInfo
+
+
+def review_from_images(
+    images: Sequence[Image.Image],
+    document_type: str,
+    settings: Settings,
+    prompt_version: str = REVIEW_PROMPT,
+) -> SecondReadingResult:
+    """Reading B: an independent look at the page images. The model does not see reading A or the
+    numbered words, so the two readings can disagree for real. One call for all pages."""
+    agent = Agent(
+        build_model(settings),
+        output_type=SecondReading,
+        instructions=load_prompt(prompt_version),
+        retries=1,
+    )
+    prompt: list[str | BinaryContent] = [f"Document type: {document_type}. Pages in order:"]
+    prompt += [BinaryContent(data=to_png_bytes(image), media_type="image/png") for image in images]
+    started = time.perf_counter()
+    result = _run_agent(agent, prompt)
+    usage = result.usage
+    return SecondReadingResult(
+        reading=result.output,
         call=CallInfo(
             provider=settings.llm_provider,
             model=settings.active_model,
