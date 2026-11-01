@@ -445,3 +445,25 @@ On the 12 cached samples the whole chain gives the manifest's blocking codes and
 **Still to verify by you:** the GST state table (`normalisation/states.py`) and the rate-slab table (`validation/tax_slabs.py`) are written from the policy text and memory, not from the official lists. Both are marked in the code.
 
 Important locations: `backend/app/providers/prompts/extract_v2.md`, `backend/app/providers/__init__.py`, `playground/extract_samples.py`, `playground/compare_prompts.py`.
+
+### Slice 19: Pipeline skeleton: reading, extraction, grounding, validation  (milestone M3)
+
+- **Outcome:**
+  - `pipeline/base.py`: `PipelineContext` (file bytes, client, settings, an injectable `extractor`, and the results of each step), a `Step` protocol, `run_pipeline(steps, context)` and a per-step timing trace. A step that cannot continue raises `PipelineError`; the run stops and returns the message (the document will become `failed`).
+  - `pipeline/steps.py`: `ReadingStep`, `ExtractionStep`, `GroundingStep` (grounding + normalisation), `ValidationStep` (`review_document`), and `build_default_pipeline()`. An unsupported file, a file with no readable words, or a document the model classes as `other` stops the run with a clear message.
+  - `playground/pipeline_samples.py`: runs the whole pipeline on all 12 samples, with the cached reading-A output as the extractor.
+- **Why:** M3's service and routes need one object that runs file -> reviewed document. The extractor is passed in, so the same pipeline runs offline for checks and with Gemini in the app. Steps decide no policy; the rules stay in `validation/`.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync python ../playground/pipeline_samples.py
+  uv run --locked --no-sync ruff check app scripts ../playground
+  uv run --locked --no-sync pytest
+  ```
+
+- **Result:** 12/12 samples give the manifest's status and blocking codes through the pipeline (eight `ready`, four `needs_review`). Reading takes 15-60 ms for PDFs and 2.5-7 s for OCR images; the other steps take about 1-10 ms. Ruff clean, 267 tests pass. No API calls, no new dependencies.
+- **Checkpoint:** `pipeline_samples.py` ends with `AGREE 12/12 documents (status and errors)`.
+
+Not built yet: second reading + merge, ledger suggestion, caching by SHA-256, `DUPLICATE_FILE` (next slices of M3). No pytest was added: the pipeline wiring is not a pure module (CLAUDE.md), so the offline playground run is its check.
+
+Important locations: `backend/app/pipeline/base.py`, `backend/app/pipeline/steps.py`, `playground/pipeline_samples.py`.
