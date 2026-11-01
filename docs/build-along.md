@@ -800,3 +800,49 @@ Slices 19-32 built the pipeline, intake, repository, service, every route in `ap
 The pipeline, API and persistence from `roadmap.md` are built and were shown end to end through a running server with the real model on the dev samples. **Open for the owner:** open `/docs` in a browser, try an upload there, and open `playground/output/walkthrough/approved.xlsx` in Excel. **Moved to M5:** the test split with the real model, the real value of the second reading (`always` against `on_doubt`), and the confidence threshold. **Next:** M4, the review UI.
 
 Important locations: `playground/walkthrough_live.py`, `playground/output/walkthrough/` (the downloaded CSV, XLSX and the email draft, git-ignored).
+
+## M4 Review UI
+
+Owner decisions (2026-11-01): screens are switched by **state in `App.tsx`** (no router, no new dependency); the **login screen and the backend password gate stay in M6**, as in `roadmap.md`, so M4 runs with the gate off (local development).
+
+### Slice 34: typed API client and types
+
+- **Outcome:** `frontend/src/lib/types.ts` (every response shape: documents, `review_data` fields, issues, ledger, clients, bulk approve, correction email, auth session) and `frontend/src/lib/api.ts` (one function per route, native `fetch`, `credentials: 'include'`).
+- **Why:** every screen after this talks to the backend only through this client, so errors look the same everywhere. `ApiError` carries `status` and the server's `detail` text (also for FastAPI's list form), `isProviderBusy` (`502`), `isUnauthorized` (`401`), and the saved `document` when an upload fails after being stored (`502` / `422`). A network failure becomes `ApiError(0, ...)`.
+- **Commands** (from `frontend/`): `pnpm exec tsc -b --pretty false`, `pnpm lint`.
+- **Result:** both pass. Not yet exercised against the running server (no screen uses it yet except `health`); the auth calls in `api.ts` (`session`, `login`, `logout`) are ready for M6 and have no backend yet.
+- **Checkpoint:** `tsc` and `lint` clean.
+
+### Slice 35: UI primitives
+
+- **Outcome:** `frontend/src/components/ui/`: `Button` (primary / secondary / danger / ghost, `loading` shows a spinner and disables it), `Badge` (neutral / info / success / warning / danger tones), `Card`, `Dialog` (native `<dialog>`: Esc, focus trap and backdrop come from the browser; click outside closes), `ConfirmDialog` (Cancel + confirm, red when `destructive`, `busy` while the call runs).
+- **Why:** the review screens need the same buttons, status badges and confirm steps (delete, reject, approve) everywhere. Native `<dialog>` avoids a dialog package.
+- **Commands** (from `frontend/`): `pnpm exec tsc -b --pretty false`, `pnpm lint`, `pnpm build`.
+- **Result:** all three pass. No screen uses the primitives yet, so nothing was looked at in the browser; the first screen (slice 3) is where they are seen.
+- **Checkpoint:** `tsc`, `lint`, `build` clean.
+
+### Slice 36: welcome, upload and processing screens
+
+- **Outcome:** `App.tsx` switches screens by state (`welcome` -> `upload` -> `processing` -> `result`). New: `WelcomeScreen` (steps + the backend status line), `UploadScreen` (client picker from `GET /api/clients`, drag-and-drop or file chooser, PDF / image preview in `FilePreview`, quick checks in `lib/files.ts`: type, empty, over 5 MB), `ProcessingScreen` (working / failed state), `ResultSummary` (a stand-in until the review screen in slice 5: status, issue list, suggested ledger).
+- **Why:** the first end-to-end path from a file to a pipeline result. The upload call starts from the button click, not from an effect, so React StrictMode cannot send the file twice (each upload costs two model calls). The client-side file checks only save a round trip; the server repeats them.
+- **Failure handling:** `502` (provider busy) shows "The AI service is busy" and **Try again**, which calls `POST /api/documents/{id}/retry` on the already saved document instead of uploading again. A lost connection (`status 0`) retries the upload. A rejected file (`415`, `413`, `422` not an invoice) shows the server's reason and only **Back to upload**.
+- **Commands** (from `frontend/`): `pnpm exec tsc -b --pretty false`, `pnpm lint`, `pnpm build`. With the backend on `:8000` and `pnpm dev` on `:5173`: `curl -H "Origin: http://localhost:5173" http://localhost:8000/api/clients`.
+- **Result:** `tsc`, `lint` and `build` pass. The running backend answers `/api/clients` with the CORS header for the Vite origin, and the `OPTIONS` preflight for `POST /api/documents` is `200`. **Not done:** I did not click through the screens in a browser and sent no document to the model (no live calls used); the upload path is the part still to be seen by the owner (open step in `todos.md`).
+- **Checkpoint:** `tsc`, `lint`, `build` clean; CORS and clients endpoint verified.
+
+### Slice 37: document inbox
+
+- **Outcome:** `InboxScreen` lists reviews newest first (`GET /api/documents`) with a status filter and a client filter, a Refresh button, and per row: file name, client, type, status badge, error / warning counts, upload time. Clicking a file name opens it (for now in `ResultSummary`; slice 5 replaces it with the review screen). Reachable from Welcome ("Open inbox") and from the result ("Back to inbox"). Empty, loading and error states are shown. Shared pieces: `StatusBadge`, `lib/status.ts` (labels), `lib/format.ts` (dates in `en-IN`).
+- **Why:** the reviewer needs to come back to documents and find the ones that need a look. Filtering is done by the server, not in the browser. The load state is keyed by the filters, so an old answer is never shown for new filters. No checkboxes yet: they arrive with bulk approve (slice 8), where they have something to do.
+- **Commands** (from `frontend/`): `pnpm exec tsc -b --pretty false`, `pnpm lint`, `pnpm build`. Against the running backend: `GET /api/documents`, `?status=needs_review`, `?client_id=C001`, `?status=bogus`.
+- **Result:** `tsc`, `lint`, `build` pass. The list endpoint answered `200` with 11 documents (the M3 walkthrough left them in the git-ignored database), 6 for `needs_review`, 10 for `C001`, and `422` for an unknown status. **Not done:** I did not open the screen in a browser (0 model calls).
+- **Checkpoint:** `tsc`, `lint`, `build` clean; filters verified at the API.
+
+### Slice 38: review screen (read-only) with the box overlay
+
+- **Outcome:** `ReviewScreen` replaces the stand-in result summary. Left: `PageViewer`, the rendered page (`GET /api/documents/{id}/pages/{n}`) with one clickable box per field and page buttons for multi-page files. Right: the fields in `FieldRow` cards grouped into header fields, line items and tax lines (`lib/fields.ts`: labels and grouping), each with its value and badges: source (PDF text / OCR / 2nd reading / Edited), confidence in percent, agree / differ / filled, "Not found on page" for an ungrounded value, and the count of issues that point at it. Header shows status, type, client name and error / warning counts. A failed document shows its `error_message`. Opened from the inbox or straight after an upload.
+- **Why:** the reviewer checks each value against the page. Clicking a field selects its box (and switches to its page); clicking a box selects the field and scrolls it into view. Boxes come from the backend in the pixel space of the page image (e.g. 1099 x 1539), so they are drawn as percent of the image's natural size and stay right at any displayed size; the PDF is never re-rendered in the browser. The selected box is blue, boxes of fields with an open issue red, the rest amber.
+- **Decision:** confidence is shown as a number only. Whether it is "low" is the server's call (`LOW_CONFIDENCE_FIELD` issue, threshold tuned in M5), so the browser holds no copy of the threshold.
+- **Commands** (from `frontend/`): `pnpm exec tsc -b --pretty false`, `pnpm lint`, `pnpm build`. The grouping was run on a real stored document with `node --experimental-strip-types` (27 of 27 fields grouped, 2 line items, 2 tax lines, labels right).
+- **Result:** the three checks pass. `tsc` needed small fixes for `noUncheckedIndexedAccess` (named regex groups, skipping a path with no entry). **Not done:** I did not open the screen in a browser, so the overlay placement and the click behaviour are not yet seen (0 model calls). That is the open step in `todos.md`.
+- **Checkpoint:** `tsc`, `lint`, `build` clean.

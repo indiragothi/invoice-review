@@ -12,7 +12,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 | M1 Scaffold, samples, read + extract | ✅ Done (NVIDIA check optional, open) |
 | M2 Ground + validate | ✅ Done (`READINGS_DISAGREE` and `DUPLICATE_FILE` move to M3) |
 | M3 Pipeline + API | ✅ Done (your manual check of `/docs` and the XLSX is open; test-split samples are left for M5) |
-| M4 Review UI | ⬜ Not started |
+| M4 Review UI | 🟡 In progress (slices 1-5 done) |
 | M5 Evaluation | ⬜ Not started |
 | M6 Ship | ⬜ Not started |
 | M7 Stretch | ⬜ Not started |
@@ -131,13 +131,14 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 
 ## M4 Review UI
 
-- [ ] `src/lib/api.ts` and `types.ts`
-- [ ] UI primitives: Button, Badge, Card, Dialog, ConfirmDialog
-- [ ] Welcome screen
-- [ ] Upload step with client picker and file preview
-- [ ] Processing step
-- [ ] Document inbox with status / client filters
-- [ ] Review screen: page image with box overlay, click field ↔ highlight box
+- [x] `src/lib/api.ts` and `types.ts` (auth calls follow the documented `/api/auth/*`; login screen and backend gate stay in M6)
+- [x] UI primitives: Button, Badge, Card, Dialog, ConfirmDialog
+- [x] Welcome screen
+- [x] Upload step with client picker and file preview
+- [x] Processing step
+- [ ] *(you)* In the browser (`http://localhost:5173`): pick a client, upload one dev sample, see the processing screen and the result summary; also try a `.txt` file and a file over 5 MB
+- [x] Document inbox with status / client filters (checkboxes come with bulk approve)
+- [x] Review screen: page image with box overlay, click field ↔ highlight box (read-only; browser check by you is open)
 - [ ] Editable fields incl. line items; source / confidence / agree-differ badges
 - [ ] Issues panel (errors vs warnings, GSTIN fix suggestion)
 - [ ] Ledger picker with suggestion and reason
