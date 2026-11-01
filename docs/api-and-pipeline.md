@@ -2,6 +2,8 @@
 
 Target HTTP API for the backend. Implemented in milestone M3; keep this file in sync with the code.
 
+**Built so far:** `/health`, `GET /api/clients`, `GET /api/accounting/ledgers`, `POST` / `GET /api/documents`, `GET /api/documents/{id}`, `/file`, `/pages/{n}`, `POST .../retry`, `DELETE`. Not built yet: auth, `PUT` edit, ledger selection, decision, bulk approve, correction email, export.
+
 Base URL (local): `http://localhost:8000` · Swagger UI: `/docs` · CORS allows the Vite app at `http://localhost:5173` (or `ALLOWED_ORIGIN`).
 
 ## Endpoint summary
@@ -41,6 +43,8 @@ Base URL (local): `http://localhost:8000` · Swagger UI: `/docs` · CORS allows 
 | `422` | Bad request body, or the document is neither an invoice nor a receipt |
 | `502` | Provider failed after retries; the record is saved as `failed` |
 
+A document that fails after it was saved (upload or retry) answers `502` (provider) or `422` (not an invoice or receipt, or no readable text) with a body `{ "detail": "...", "document": <DocumentResponse> }`; the record stays in the list as `failed` and can be retried (`failed` documents have `issues: []`).
+
 ## DocumentResponse
 
 | Field | Type | Meaning |
@@ -52,9 +56,10 @@ Base URL (local): `http://localhost:8000` · Swagger UI: `/docs` · CORS allows 
 | `classification` | object \| null | `invoice` / `receipt` + reason |
 | `review_data` | object \| null | Flat editable fields; each with value, source, confidence, agreement, evidence box (see [architecture.md](architecture.md#7-persistence)) |
 | `document_review` | object \| null | Second-reading comparison per field |
-| `issues` | array | `{ code, severity, field, message, supplier_fixable }` |
+| `issues` | array | `{ code, severity, field, message, suggestion }`; `supplier_fixable` is added with the correction-email slice |
 | `ledger` | object \| null | `{ suggested_code, reason, selected_code, overridden }` |
-| `supplier_action_required` | bool | True when supplier-fixable issues exist |
+| `document_type` | string \| null | `invoice` or `receipt` |
+| `supplier_action_required` | bool | True when supplier-fixable issues exist *(not built yet)* |
 | `history` | array | Edits and decisions |
 | `pipeline_run` | object \| null | Provider, model, prompt version, API calls, milliseconds |
 | `error_message` | string \| null | Set when `failed` |

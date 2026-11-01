@@ -66,6 +66,7 @@ uv run --locked --no-sync python ../playground/pipeline_samples.py     # whole p
 uv run --locked --no-sync python ../playground/repository_samples.py   # SQLite repository vs manifest, offline
 uv run --locked --no-sync python ../playground/intake_samples.py       # upload intake on samples + bad files, offline
 uv run --locked --no-sync python ../playground/service_samples.py      # document service on samples, offline
+uv run --locked --no-sync python ../playground/api_samples.py          # HTTP API via TestClient, offline
 uv run --locked --no-sync pytest                                        # pure-module tests
 ```
 

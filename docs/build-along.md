@@ -599,3 +599,28 @@ Important locations: `backend/app/documents/intake.py`, `backend/tests/test_inta
 Not built yet: the routes (the status-code mapping: `IntakeError` 413 / 415, unknown client or document 404, `ConflictError` 409, provider failure 502, "neither invoice nor receipt" 422), the projection into `review_data`, edits, the ledger selection, the decision and the approval invariant.
 
 Important locations: `backend/app/documents/service.py`, `backend/app/providers/retry.py`, `backend/tests/test_retry.py`, `playground/service_samples.py`.
+
+### Slice 26: HTTP routes, part 1  (milestone M3)
+
+- **Outcome:** the read side and the upload of the API, wired in `create_app()`.
+  - `GET /api/clients`, `GET /api/accounting/ledgers` (`app/reference_routes.py`).
+  - `POST /api/documents` (multipart `file` + `client_id`) -> `201` with the review; `GET /api/documents` (filters `status`, `client_id`, newest first); `GET /api/documents/{id}`; `GET .../file` (original bytes, `nosniff`); `GET .../pages/{n}` (page PNG in the pixels of the word boxes); `POST .../retry`; `DELETE` (`204`, also removes the stored file).
+  - Status codes: `413` / `415` from `IntakeError`, `404` unknown client, document or page, `409` retry of a document that is not `failed`, `422` bad `status` filter or a file that is not an invoice / receipt, `502` provider failure. The last two still save the document as `failed` and answer `{detail, document}`.
+  - `documents/routes.py` only parses and maps; `documents/schemas.py` has `DocumentResponse` (the big `reading` and `extraction` columns are not sent); `DocumentService` gained `file_path`, `page_png` and `delete`. One database session and one service per request. Handlers are plain `def` (the reading and model calls block). The upload reads at most 5 MB + 1 byte.
+  - `create_app(data_dir, extractor, ledger_suggester)`: the server passes nothing and uses `backend/data/` and Gemini; the arguments let a check use a temporary folder and cached answers.
+- **Bug found while checking:** a `failed` document has no issues yet (`NULL` column), so building its response failed and the 502 / 422 answer crashed. `DocumentResponse` now turns an empty `issues` / `history` into `[]`.
+- **Why:** the UI (M4) and `curl` need an HTTP surface. The routes hold no logic, so the service stays the single place for workflow.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync python ../playground/api_samples.py      # offline, TestClient
+  uv run --locked --no-sync uvicorn app.main:create_app --factory --reload --port 8000   # then open http://localhost:8000/docs
+  ```
+
+- **Result:** `api_samples.py` passes 26/26 checks: health, clients (3), ledgers (13), CORS for the Vite origin, 12 uploads -> `201` with the manifest status, filters (8 `ready`, 4 `needs_review`, 10 for C001), the original file back byte for byte, page PNGs (page 2 of a one-page file is `404`), renamed `.exe` `415`, over 5 MB `413`, 6 pages `413`, unknown client `404` and nothing stored, a path in the file name never reaches the disk, busy provider `502` then retry `200 ready`, "not an invoice" `422`, delete `204` then `404`. 283 tests pass; ruff clean; the real `create_app()` starts. No API calls, no new dependency (`python-multipart` was already pinned).
+- **What this does not show:** the real server was started only inside `TestClient`; open `/docs` once yourself and try an upload with Gemini (it uses live quota: 2 calls per document). The page-image route renders on every request. No password gate yet (M6), so the API is open locally.
+- **Checkpoint:** `api_samples.py` ends with `API 26/26 checks passed`.
+
+Not built yet: edit (`PUT`), ledger selection, the decision and the approval invariant, bulk approve, correction email, export. The `security.md` upload checklist lines (renamed `.exe`, 50-page PDF) now pass at the API level; they are ticked in M6 with the rest of that checklist.
+
+Important locations: `backend/app/documents/routes.py`, `backend/app/documents/schemas.py`, `backend/app/reference_routes.py`, `backend/app/main.py`, `playground/api_samples.py`.

@@ -18,7 +18,9 @@ from app.documents.repository import DocumentRepository
 from app.pipeline.base import Extractor, LedgerSuggester, PipelineContext, run_pipeline
 from app.pipeline.steps import build_default_pipeline
 from app.providers import ProviderError
+from app.reader import render_images
 from app.reader.cache import ReadingCache, sha256_hex
+from app.reader.render import to_png_bytes
 from app.validation.duplicates import invoice_key, key_to_json, receipt_key
 
 
@@ -27,6 +29,10 @@ class ClientNotFoundError(Exception):
 
 
 class DocumentNotFoundError(Exception):
+    pass
+
+
+class PageNotFoundError(Exception):
     pass
 
 
@@ -68,6 +74,26 @@ class DocumentService:
     def list(self, status: str | None = None, client_id: str | None = None):
         return self.repository.list(status=status, client_id=client_id)
 
+    def file_path(self, document: Document) -> Path:
+        """Where the original bytes are kept (the name is the generated one)."""
+        return uploads_dir(self.data_dir) / document.stored_filename
+
+    def page_png(self, document_id: str, page: int) -> bytes:
+        """One page rendered as PNG, in the same pixels as the word boxes."""
+        document = self.get(document_id)
+        if not 1 <= page <= document.page_count:
+            raise PageNotFoundError(page)
+        path = self.file_path(document)
+        if not path.exists():
+            raise PageNotFoundError(page)
+        return to_png_bytes(render_images(path.read_bytes())[page - 1])
+
+    def delete(self, document_id: str) -> None:
+        """Remove the review and its stored file (demo reset)."""
+        document = self.get(document_id)
+        self.file_path(document).unlink(missing_ok=True)
+        self.repository.delete(document)
+
     # ------------------------------------------------------------------ upload / retry
 
     def upload(self, data: bytes, filename: str, client_id: str) -> Document:
@@ -94,7 +120,7 @@ class DocumentService:
         document = self.get(document_id)
         if document.status != DocumentStatus.FAILED:
             raise ConflictError("Only a failed document can be retried.")
-        path = uploads_dir(self.data_dir) / document.stored_filename
+        path = self.file_path(document)
         if not path.exists():
             raise ConflictError("The stored file is missing; upload it again.")
         history = [*document.history, _event("retry")]

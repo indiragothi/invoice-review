@@ -11,7 +11,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 | M0 Plan | ✅ Done |
 | M1 Scaffold, samples, read + extract | ✅ Done (NVIDIA check optional, open) |
 | M2 Ground + validate | ✅ Done (`READINGS_DISAGREE` and `DUPLICATE_FILE` move to M3) |
-| M3 Pipeline + API | 🟨 In progress (slices 19-25 done) |
+| M3 Pipeline + API | 🟨 In progress (slices 19-26 done) |
 | M4 Review UI | ⬜ Not started |
 | M5 Evaluation | ⬜ Not started |
 | M6 Ship | ⬜ Not started |
@@ -115,7 +115,8 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [x] SQLite `documents` table and repository (`database.py`, `documents/models.py`, `documents/repository.py`)
 - [x] Document service (upload -> intake -> pipeline -> save; retry of a `failed` document) (`documents/service.py`)
 - [x] Upload intake: magic bytes, 5 MB, 5 pages, stored as `<uuid>.<ext>` (`documents/intake.py`; the HTTP 413 / 415 responses come with the routes)
-- [ ] Routes from `api-and-pipeline.md` (upload, list, get, file, page image, edit, ledger, decision, bulk approve, retry, delete, clients, ledgers)
+- [x] Routes, part 1: clients, ledgers, upload, list, get, file, page image, retry, delete
+- [ ] Routes, part 2: edit, ledger selection, decision, bulk approve (with the approval invariant below)
 - [ ] Approval invariant: `409` with open errors or no ledger; decided records locked
 - [ ] Correction email: eligibility codes + draft endpoint
 - [ ] Export: CSV / XLSX, approved only, formula-injection safe
