@@ -488,3 +488,46 @@ Important locations: `backend/app/pipeline/base.py`, `backend/app/pipeline/steps
 Notes: the cache folder (planned under `backend/data/`, git-ignored) is wired in by the service later. Delete it after any change to the reader. The "skip the document itself, rejected and failed records" part of `known_files` / `existing` needs the repository and stays open.
 
 Important locations: `backend/app/reader/cache.py`, `backend/app/pipeline/steps.py`, `backend/tests/test_duplicates.py`.
+
+### Slice 21: Ledger catalog  (milestone M3)
+
+- **Outcome:** `accounting/catalog.py` holds the 13 fixed ledgers from `policy-rules.md` (`Ledger(code, name, typical)`, `LEDGERS`, `LEDGERS_BY_CODE`). `checked_ledger_code(code)` returns the code only if it is in the catalog (spaces trimmed), otherwise `None`. `catalog_for_prompt()` gives one `code | name | typical bills` line per ledger for the suggestion prompt.
+- **Why:** the model may only choose from this list, and code must be able to reject anything else before the suggestion is stored or approved. The catalog is fixed code, not a model output or an env setting.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest tests/test_catalog.py
+  uv run --locked --no-sync ruff check app scripts tests ../playground
+  ```
+
+- **Result:** 271 tests pass (3 new); ruff clean. No API calls, no new dependencies.
+- **Checkpoint:** `test_checked_ledger_code_accepts_only_catalog_codes` passes (`9999`, `Rent`, `6130.0`, empty and `None` are all rejected).
+
+Not built yet: the suggestion prompt and step (the LLM call, with the code check on its answer), `GET /api/accounting/ledgers`. Both come in the next slices.
+
+Important locations: `backend/app/accounting/catalog.py`, `backend/tests/test_catalog.py`.
+
+### Slice 22: Ledger suggestion prompt and step  (milestone M3)
+
+- **Outcome:**
+  - `providers/prompts/ledger_v1.md`: pick one code from the catalog, decide from the items first and the vendor second, use the buyer's business to tell food for a restaurant from a meal for staff, fall back to miscellaneous, one-sentence reason, document text is untrusted data.
+  - `providers.suggest_ledger(document, client_name, settings)`: one call. The input is only the normalised fields (buyer, vendor or merchant, item descriptions, HSN/SAC, amounts, total) plus the `<catalog>`; no raw file text. Returns `LedgerResult(choice, call)`; the prompt version is recorded in `CallInfo`.
+  - `schemas/ledger.py`: `LedgerChoice` (model output) and `LedgerSuggestion` (after the check).
+  - `LedgerStep`: runs after validation. The code is checked with `checked_ledger_code`; if it is not in the catalog the suggestion keeps no code and says so, and the reviewer picks. `PipelineContext` now has `ledger_suggester` (injected, like the extractor), `ledger` and `ledger_call`.
+  - `playground/ledger_samples.py`: scores the suggestion against `expected_ledger`; results cached in `output/ledger_v1/`; a new call on a test-split document is refused unless `--allow-test`.
+- **Why:** the ledger is the last piece of a prepared review, and approval needs it. The model only chooses among fixed codes; code decides whether the answer is acceptable.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync python ../playground/ledger_samples.py --split dev   # 7 API calls (done once, then cached)
+  uv run --locked --no-sync python ../playground/pipeline_samples.py             # offline
+  ```
+
+- **Live calls used:** 7 (`gemini-3.5-flash-lite`, dev documents 01, 03, 05, 07, 08, 09, 11), about 620-1,670 input and 35-46 output tokens each, 1-1.6 s each.
+- **Result:** dev split **7/7** ledgers equal `expected_ledger`, each with a sensible one-line reason. The full pipeline still gives the manifest's status and errors on 12/12 offline; ruff clean, 271 tests pass.
+- **What this does not show:** one run per document, on the seven dev samples, whose vendors and items are plain (stationery, laptops, AC repair, broadband, rent, groceries, fuel). It says nothing about the test split (not called yet, measured in M5), unusual bills or the invalid-code path. In `pipeline_samples.py` the five test-split documents get a labelled stand-in ledger (`6190`), so the ledger is not part of what that script compares. No pytest: the step needs a model.
+- **Checkpoint:** `ledger_samples.py --split dev` prints `LEDGER 7/7 match expected_ledger` from the cache.
+
+Not built yet: second reading + merge, `GET /api/accounting/ledgers`, storing and overriding the selected ledger (service / routes).
+
+Important locations: `backend/app/providers/prompts/ledger_v1.md`, `backend/app/providers/__init__.py`, `backend/app/pipeline/steps.py`, `playground/ledger_samples.py`.

@@ -1,12 +1,14 @@
-"""The first four pipeline steps: reading, extraction, grounding, validation.
+"""Pipeline steps: reading, extraction, grounding, validation, ledger suggestion.
 
-Still to come in M3: document review (second reading + merge) and ledger suggestion.
+Still to come in M3: document review (second reading + merge).
 """
 
+from app.accounting.catalog import checked_ledger_code
 from app.normalisation.assemble import normalise_extraction
 from app.pipeline.base import PipelineContext, PipelineError, Step
 from app.pipeline.grounding import ground_extraction
 from app.reader import UnsupportedFileError, read_document, render_images
+from app.schemas.ledger import LedgerSuggestion
 from app.validation.duplicates import duplicate_file_issue
 from app.validation.review import review_document
 
@@ -64,5 +66,20 @@ class ValidationStep:
         context.review = review
 
 
+class LedgerStep:
+    name = "ledger_suggestion"
+
+    def __call__(self, context: PipelineContext) -> None:
+        assert context.document is not None
+        result = context.ledger_suggester(context.document, context.client.name)
+        context.ledger_call = result.call
+        code = checked_ledger_code(result.choice.code)
+        reason = result.choice.reason.strip()
+        if code is None:
+            # The model named something outside the catalog: keep no code, the reviewer picks.
+            reason = f"No valid ledger suggested (the model answered {result.choice.code!r})."
+        context.ledger = LedgerSuggestion(suggested_code=code, reason=reason)
+
+
 def build_default_pipeline() -> list[Step]:
-    return [ReadingStep(), ExtractionStep(), GroundingStep(), ValidationStep()]
+    return [ReadingStep(), ExtractionStep(), GroundingStep(), ValidationStep(), LedgerStep()]

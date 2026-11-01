@@ -15,12 +15,16 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 
+from app.accounting.catalog import catalog_for_prompt
 from app.config import Settings
 from app.reader.schemas import ReadDocument
+from app.schemas.documents import Invoice, Receipt
 from app.schemas.extraction import Extraction
+from app.schemas.ledger import LedgerChoice
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 EXTRACT_PROMPT = "extract_v2"
+LEDGER_PROMPT = "ledger_v1"
 
 
 @dataclass(frozen=True)
@@ -90,6 +94,61 @@ def extract(
     usage = result.usage
     return ExtractionResult(
         extraction=result.output,
+        call=CallInfo(
+            provider=settings.llm_provider,
+            model=settings.active_model,
+            prompt_version=prompt_version,
+            input_tokens=usage.input_tokens or 0,
+            output_tokens=usage.output_tokens or 0,
+            seconds=round(time.perf_counter() - started, 2),
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class LedgerResult:
+    choice: LedgerChoice
+    call: CallInfo
+
+
+def format_for_ledger(document: Invoice | Receipt, client_name: str) -> str:
+    """The normalised fields the ledger decision needs. No raw file text, no boxes."""
+    if isinstance(document, Invoice):
+        lines = ["Kind: invoice", f"Vendor: {document.vendor_name}"]
+    else:
+        lines = ["Kind: receipt", f"Merchant: {document.merchant_name}"]
+    lines.insert(0, f"Buyer: {client_name}")
+    for number, item in enumerate(document.line_items, start=1):
+        lines.append(
+            f"Item {number}: {item.description} | HSN/SAC {item.hsn_sac} | {item.taxable_amount}"
+        )
+    lines.append(f"Total: {document.total}")
+    return "\n".join(lines)
+
+
+def suggest_ledger(
+    document: Invoice | Receipt,
+    client_name: str,
+    settings: Settings,
+    prompt_version: str = LEDGER_PROMPT,
+) -> LedgerResult:
+    """One LLM call: pick a ledger code from the catalog. The caller must still check the code
+    with `checked_ledger_code`; nothing here trusts the model."""
+    agent = Agent(
+        build_model(settings),
+        output_type=LedgerChoice,
+        instructions=load_prompt(prompt_version),
+        retries=1,
+    )
+    prompt = (
+        f"<catalog>\n{catalog_for_prompt()}\n</catalog>\n"
+        f"<document>\n{format_for_ledger(document, client_name)}\n</document>"
+    )
+    started = time.perf_counter()
+    result = agent.run_sync(prompt)
+    usage = result.usage
+    return LedgerResult(
+        choice=result.output,
         call=CallInfo(
             provider=settings.llm_provider,
             model=settings.active_model,

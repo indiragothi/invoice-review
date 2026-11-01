@@ -13,17 +13,19 @@ from PIL import Image
 
 from app.clients import Client
 from app.config import Settings
-from app.providers import CallInfo, ExtractionResult
+from app.providers import CallInfo, ExtractionResult, LedgerResult
 from app.reader.cache import ReadingCache, sha256_hex
 from app.reader.schemas import ReadDocument
 from app.schemas.documents import Invoice, Receipt
 from app.schemas.extraction import Extraction
 from app.schemas.fields import GroundedField
+from app.schemas.ledger import LedgerSuggestion
 from app.validation.review import ReviewResult
 
 PipelineStatus = Literal["ready", "needs_review", "failed"]
 
 Extractor = Callable[[ReadDocument], ExtractionResult]
+LedgerSuggester = Callable[[Invoice | Receipt, str], LedgerResult]  # (document, client name)
 
 
 class PipelineError(Exception):
@@ -42,6 +44,7 @@ class PipelineContext:
     client: Client
     settings: Settings
     extractor: Extractor
+    ledger_suggester: LedgerSuggester
     today: date = field(default_factory=date.today)
     reading_cache: ReadingCache | None = None
     known_files: Mapping[str, str] = field(default_factory=dict)  # {sha256: document id}
@@ -55,6 +58,8 @@ class PipelineContext:
     document: Invoice | Receipt | None = None
     grounded: dict[str, GroundedField] = field(default_factory=dict)
     review: ReviewResult | None = None
+    ledger: LedgerSuggestion | None = None
+    ledger_call: CallInfo | None = None
     trace: list[StepTrace] = field(default_factory=list)
 
     def __post_init__(self) -> None:

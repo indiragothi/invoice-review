@@ -13,17 +13,21 @@ from datetime import date
 from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parent.parent / "backend"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(BACKEND))
+
+from ledger_samples import cached_ledger as ledger_cache  # noqa: E402
 
 from app.clients import CLIENTS_BY_ID  # noqa: E402
 from app.config import APP_CONFIG, get_settings  # noqa: E402
 from app.pipeline.base import PipelineContext, run_pipeline  # noqa: E402
 from app.pipeline.steps import build_default_pipeline  # noqa: E402
-from app.providers import CallInfo, ExtractionResult  # noqa: E402
+from app.providers import CallInfo, ExtractionResult, LedgerResult  # noqa: E402
 from app.reader import read_document  # noqa: E402
 from app.reader.cache import ReadingCache  # noqa: E402
 from app.schemas.extraction import Extraction  # noqa: E402
 from app.schemas.issues import Severity  # noqa: E402
+from app.schemas.ledger import LedgerChoice  # noqa: E402
 
 OUTPUT = Path(__file__).resolve().parent / "output"
 CACHE = OUTPUT / "extract"
@@ -42,6 +46,20 @@ def cached_extractor(stem: str):
     return extractor
 
 
+def cached_ledger_suggester(stem: str):
+    """The cached ledger_v1 answer; test-split documents have none yet, so they get a labelled
+    stand-in (the ledger is not part of what this script compares)."""
+    cached = ledger_cache(stem)
+
+    def suggester(_document, _client_name) -> LedgerResult:
+        if cached is not None:
+            return cached
+        choice = LedgerChoice(code="6190", reason="(no cached ledger answer: test split)")
+        return LedgerResult(choice=choice, call=CallInfo("none", "none", "none", 0, 0, 0.0))
+
+    return suggester
+
+
 def main() -> None:
     manifest = json.loads((APP_CONFIG.samples_dir / "manifest.json").read_text(encoding="utf-8"))
     settings = get_settings()
@@ -57,6 +75,7 @@ def main() -> None:
             client=CLIENTS_BY_ID[entry["client"]],
             settings=settings,
             extractor=cached_extractor(path.stem),
+            ledger_suggester=cached_ledger_suggester(path.stem),
             today=TODAY,
             reading_cache=reading_cache,
         )
@@ -89,6 +108,7 @@ def make_context(entry, settings, reading_cache, known=None) -> PipelineContext:
         client=CLIENTS_BY_ID[entry["client"]],
         settings=settings,
         extractor=cached_extractor(path.stem),
+        ledger_suggester=cached_ledger_suggester(path.stem),
         today=TODAY,
         reading_cache=reading_cache,
         known_files=known or {},
