@@ -11,7 +11,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 | M0 Plan | ✅ Done |
 | M1 Scaffold, samples, read + extract | ✅ Done (NVIDIA check optional, open) |
 | M2 Ground + validate | ✅ Done (`READINGS_DISAGREE` and `DUPLICATE_FILE` move to M3) |
-| M3 Pipeline + API | 🟨 In progress (slices 19-32 done; the M3 walkthrough is left) |
+| M3 Pipeline + API | ✅ Done (your manual check of `/docs` and the XLSX is open; test-split samples are left for M5) |
 | M4 Review UI | ⬜ Not started |
 | M5 Evaluation | ⬜ Not started |
 | M6 Ship | ⬜ Not started |
@@ -124,9 +124,10 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [x] Export: CSV / XLSX, approved only, formula-injection safe (`GET /api/export`)
 - [x] Retry with backoff on `429` / 5xx (`providers/retry.py`); `failed` + provider error after retries (the HTTP `502` comes with the routes)
 - [x] Pipeline run trace (provider, model, prompt versions, calls, ms per step) saved in `pipeline_run`
-- [ ] Verify with `curl` / Swagger on the 12 samples
-- [ ] Update `build-along.md` and `api-and-pipeline.md`
-- [ ] **M3 exit:** upload → `ready` / `needs_review` with fields, boxes, issues, ledger; illegal approve returns `409`
+- [x] Verify through the running server with the real model on the **7 dev samples** (`playground/walkthrough_live.py`, 22/22 checks, 15 live calls). The 5 test-split samples are left for the M5 evaluation so that split stays untouched (decision of the owner, 2026-11-01)
+- [ ] *(you)* Open `http://localhost:8000/docs`, try one upload there, and open the downloaded `approved.xlsx` in Excel (`playground/output/walkthrough/` has one from the walkthrough)
+- [x] Update `build-along.md` and `api-and-pipeline.md` (kept in step with every slice; M3 summary in `build-along.md`)
+- [x] **M3 exit:** upload → `ready` / `needs_review` with fields, boxes, issues, ledger; illegal approve returns `409` (shown through the running server on the dev samples)
 
 ## M4 Review UI
 

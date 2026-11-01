@@ -776,3 +776,27 @@ Important locations: `backend/app/pipeline/steps.py` (`DocumentReviewStep`), `ba
 #### M3 summary
 
 Slices 19-32 built the pipeline, intake, repository, service, every route in `api-and-pipeline.md` except the password gate (M6), the ledger and correction-email steps, export and the second reading. All of it was checked offline with cached model answers and a temporary database (`api_samples.py`, 91 checks) and with 324 pytest tests. **Not yet done for the M3 exit:** a real walkthrough of the 12 samples through the running server with live Gemini calls (about 24 to 36 calls, `curl` or Swagger), and a look at the real `/docs`, a downloaded XLSX and a rejected 50-page PDF by you.
+
+### Slice 33: M3 walkthrough through the running server with the real model  (milestone M3 exit)
+
+- **Outcome:** `playground/walkthrough_live.py`. It talks to a real `uvicorn` server (started from `backend/` with `uvicorn app.main:create_app --factory --port 8000`) over HTTP with `httpx`, using Gemini (`gemini-3.5-flash-lite`), a fresh database and no cached answers.
+- **Scope decision (owner):** only the **7 dev samples** go to the model. The 5 test-split samples (02, 04, 06, 10, 12) are not sent, so the test split stays untouched until the M5 evaluation (`docs/evaluation.md`: "touched only for reported numbers"). Their pipeline behaviour was already checked offline with cached answers.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync uvicorn app.main:create_app --factory --port 8000    # one terminal
+  uv run --locked --no-sync python ../playground/walkthrough_live.py             # another
+  ```
+
+- **Live calls used:** 15. Seven uploads x 2 (extraction + ledger) = 14, plus one correction-email draft. The second reading never ran (`on_doubt`: no required field was in doubt on these samples). Free-tier limits were not a problem (uploads were spaced 9 s apart).
+- **Result: 22/22 checks passed.** All 7 uploads returned `201` with the manifest's status, blocking codes and ledger (4 `ready`: 01, 03, 09, 11; 3 `needs_review`: 05 invalid GSTIN, 07 wrong tax split, 08 buyer is not the client), and each had fields with boxes (10 to 223 per document). The approval invariant held on the real server: approving the `needs_review` document with a ledger selected is `409` (status and `invalid_vendor_gstin` named), and approving a `ready` document with no ledger is `409`. Fixing sample 05's GSTIN with the app's own checksum suggestion (`...E1ZE` -> `...E1Z7`) made it `ready`, then approved; a decided record answers `409`. The correction email for sample 08 names the invoice and gives the client's correct name and GSTIN; a document with nothing the supplier can fix gives `409`. Bulk approve approved the 4 ready documents and skipped the 3 that were not. The export has exactly the 5 approved documents, with the corrected GSTIN in the row. A 50-page PDF is `413`, a program renamed `.pdf` is `415`, an unknown client `404`. The server log shows no error: only the expected `409`, `413`, `415`, `404`.
+- **Time:** 6 to 16 s per upload on the server (the two-page invoice 16 s; one page about 6 s). Mostly the two model calls.
+- **What this does not show:** the test-split documents with the real model (M5); the real `429` path (the free-tier limit was never reached); the second reading on a real document (it never fired); the quality of the prompts beyond these seven documents. The downloaded files were read back with `csv` / `openpyxl`, not opened in Excel: that is a step for the owner.
+- **Left in `backend/data/`:** the walkthrough leaves its 7 documents in the real (git-ignored) database. Delete `backend/data/` to start clean, or `DELETE /api/documents/{id}` one by one.
+- **Checkpoint:** `walkthrough_live.py` ends with `WALKTHROUGH 22/22 checks passed`.
+
+#### M3 is done
+
+The pipeline, API and persistence from `roadmap.md` are built and were shown end to end through a running server with the real model on the dev samples. **Open for the owner:** open `/docs` in a browser, try an upload there, and open `playground/output/walkthrough/approved.xlsx` in Excel. **Moved to M5:** the test split with the real model, the real value of the second reading (`always` against `on_doubt`), and the confidence threshold. **Next:** M4, the review UI.
+
+Important locations: `playground/walkthrough_live.py`, `playground/output/walkthrough/` (the downloaded CSV, XLSX and the email draft, git-ignored).
