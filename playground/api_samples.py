@@ -21,7 +21,11 @@ import pymupdf  # noqa: E402
 from email_samples import cached_draft  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from openpyxl import load_workbook  # noqa: E402
-from pipeline_samples import cached_extractor, cached_ledger_suggester  # noqa: E402
+from pipeline_samples import (  # noqa: E402
+    cached_extractor,
+    cached_ledger_suggester,
+    cached_second_reader,
+)
 
 from app.config import APP_CONFIG  # noqa: E402
 from app.main import create_app  # noqa: E402
@@ -61,7 +65,14 @@ def main() -> None:
             raise ProviderError("The AI provider is busy. Retry later.", busy=True)
         return cached_draft(mode["stem"], "email_v1")
 
-    client = TestClient(create_app(WORK, extractor, ledger, drafter))
+    def second_reader(images, document_type):
+        result = cached_second_reader(mode["stem"])(images, document_type)
+        if mode["fail"] == "tamper":  # a reading B that disagrees about the total
+            changed = result.reading.model_copy(update={"total": "99,999.00"})
+            return type(result)(reading=changed, call=result.call)
+        return result
+
+    client = TestClient(create_app(WORK, extractor, ledger, drafter, second_reader))
 
     def upload(path_or_bytes, name, client_id):
         data = path_or_bytes.read_bytes() if isinstance(path_or_bytes, Path) else path_or_bytes
@@ -592,6 +603,66 @@ def main() -> None:
         {d["id"] for d in client.get("/api/documents", params={"status": "approved"}).json()}
         == approved_ids,
     )
+
+    # second reading: a reading B that disagrees about the total (SECOND_READING=always)
+    base_settings = client.app.state.settings
+    fuel = APP_CONFIG.samples_dir / by_stem["11-fuel-receipt"]["file"]
+    client.delete(f"/api/documents/{ids['11-fuel-receipt']}")  # so the upload is new again
+    client.app.state.settings = base_settings.model_copy(update={"second_reading": "always"})
+    mode.update(stem="11-fuel-receipt", fail="tamper")
+    r = upload(fuel, "fuel.jpg", by_stem["11-fuel-receipt"]["client"])
+    body = r.json()
+    total = body["review_data"]["fields"]["total"]
+    check(
+        "a second reading that disagrees about the total -> needs_review, one warning",
+        r.status_code == 201
+        and body["status"] == "needs_review"
+        and body["document_review"]["ran"] is True
+        and body["document_review"]["agreement"]["total"] == "differ"
+        and [i["code"] for i in body["issues"] if i["field"] == "total"] == ["readings_disagree"]
+        and not any(i["severity"] == "error" for i in body["issues"]),
+        str([i["code"] for i in body["issues"]]),
+    )
+    check(
+        "the disputed value is capped at 0.5 and marked differ; the run record shows 3 calls",
+        total["confidence"] == 0.5
+        and total["agreement"] == "differ"
+        and body["pipeline_run"]["calls"] == 3
+        and body["pipeline_run"]["prompt_versions"]["review"] == "review_v1",
+        f"confidence {total['confidence']}",
+    )
+    check(
+        "readings_disagree is not something the supplier can fix",
+        body["supplier_action_required"] is False
+        and all(
+            not i["supplier_fixable"] for i in body["issues"] if i["code"] == "readings_disagree"
+        ),
+    )
+    fuel_id = body["id"]
+    r = edit(fuel_id, {"total": total["original"]})
+    fixed = r.json()
+    check(
+        "the reviewer confirms the value -> human, warning gone, ready",
+        r.status_code == 200
+        and fixed["status"] == "ready"
+        and fixed["review_data"]["fields"]["total"]["agreement"] is None
+        and fixed["review_data"]["fields"]["total"]["source"] == "human"
+        and "readings_disagree"
+        not in [i["code"] for i in fixed["issues"] if i["field"] == "total"],
+    )
+    client.delete(f"/api/documents/{fuel_id}")
+    client.app.state.settings = base_settings.model_copy(update={"second_reading": "never"})
+    mode["fail"] = None
+    r = upload(fuel, "fuel.jpg", by_stem["11-fuel-receipt"]["client"])
+    check(
+        "SECOND_READING=never -> not run, 2 calls, status ready",
+        r.json()["document_review"]["ran"] is False
+        and r.json()["pipeline_run"]["calls"] == 2
+        and r.json()["status"] == "ready"
+        and r.json()["pipeline_run"]["prompt_versions"]["review"] is None,
+    )
+    client.delete(f"/api/documents/{r.json()['id']}")
+    client.app.state.settings = base_settings
 
     # delete
     victim = ids["12-restaurant-receipt"]

@@ -200,3 +200,21 @@ def test_a_quantity_with_a_unit_equals_the_bare_number_but_not_another_number():
     other = reading_b(line_items=[SecondLineItem(description="Paper", quantity="2")])
     assert compare_and_fill(a, same, DOC)[1]["line_items[0].quantity"] == "agree"
     assert compare_and_fill(a, other, DOC)[1]["line_items[0].quantity"] == "differ"
+
+
+def test_doubt_is_a_missing_ungrounded_or_low_confidence_required_field():
+    from app.pipeline.agreement import in_doubt
+
+    required = ("vendor_name", "total")
+    good = {
+        "vendor_name": GroundedField(raw="x", grounding="grounded", confidence=0.95),
+        "total": GroundedField(raw="1", grounding="grounded", confidence=0.80),
+    }
+    assert not in_doubt(good, required, 0.80)  # at the threshold is fine
+    assert in_doubt({"vendor_name": good["vendor_name"]}, required, 0.80)  # total missing
+    low = {**good, "total": good["total"].model_copy(update={"confidence": 0.79})}
+    assert in_doubt(low, required, 0.80)
+    ungrounded = {**good, "total": good["total"].model_copy(update={"grounding": "ungrounded"})}
+    assert in_doubt(ungrounded, required, 0.80)
+    extra = {**good, "buyer_name": GroundedField(raw=None, grounding="missing")}
+    assert not in_doubt(extra, required, 0.80)  # only required fields count

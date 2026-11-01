@@ -45,6 +45,7 @@ def get_service(request: Request) -> Iterator[DocumentService]:
             state.settings,
             state.extractor,
             state.ledger_suggester,
+            state.second_reader,
             reading_cache=state.reading_cache,
             email_drafter=state.email_drafter,
             data_dir=state.data_dir,

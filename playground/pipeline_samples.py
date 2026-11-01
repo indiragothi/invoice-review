@@ -17,12 +17,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(BACKEND))
 
 from ledger_samples import cached_ledger as ledger_cache  # noqa: E402
+from second_reading_samples import cached_second as second_cache  # noqa: E402
 
 from app.clients import CLIENTS_BY_ID  # noqa: E402
 from app.config import APP_CONFIG, get_settings  # noqa: E402
 from app.pipeline.base import PipelineContext, run_pipeline  # noqa: E402
 from app.pipeline.steps import build_default_pipeline  # noqa: E402
-from app.providers import CallInfo, ExtractionResult, LedgerResult  # noqa: E402
+from app.providers import (  # noqa: E402
+    CallInfo,
+    ExtractionResult,
+    LedgerResult,
+    ProviderError,
+)
 from app.reader import read_document  # noqa: E402
 from app.reader.cache import ReadingCache  # noqa: E402
 from app.schemas.extraction import Extraction  # noqa: E402
@@ -60,6 +66,18 @@ def cached_ledger_suggester(stem: str):
     return suggester
 
 
+def cached_second_reader(stem: str):
+    """The cached reading B (dev documents only); others behave like a failed second reading."""
+    cached = second_cache(stem, "review_v1")
+
+    def reader(_images, _document_type):
+        if cached is None:
+            raise ProviderError("no cached second reading", busy=False)
+        return cached
+
+    return reader
+
+
 def main() -> None:
     manifest = json.loads((APP_CONFIG.samples_dir / "manifest.json").read_text(encoding="utf-8"))
     settings = get_settings()
@@ -76,6 +94,7 @@ def main() -> None:
             settings=settings,
             extractor=cached_extractor(path.stem),
             ledger_suggester=cached_ledger_suggester(path.stem),
+            second_reader=cached_second_reader(path.stem),
             today=TODAY,
             reading_cache=reading_cache,
         )
@@ -99,6 +118,7 @@ def main() -> None:
             print(f"      errors {sorted(errors)} want {sorted(entry['expected_errors'])}")
     print(f"\nAGREE {agree}/{len(manifest['documents'])} documents (status and errors)")
     check_cache_and_duplicates(manifest, settings, steps, reading_cache)
+    check_second_reading(manifest, settings, steps)
 
 
 def make_context(entry, settings, reading_cache, known=None) -> PipelineContext:
@@ -109,6 +129,7 @@ def make_context(entry, settings, reading_cache, known=None) -> PipelineContext:
         settings=settings,
         extractor=cached_extractor(path.stem),
         ledger_suggester=cached_ledger_suggester(path.stem),
+        second_reader=cached_second_reader(path.stem),
         today=TODAY,
         reading_cache=reading_cache,
         known_files=known or {},
@@ -140,6 +161,29 @@ def check_cache_and_duplicates(manifest, settings, steps, reading_cache) -> None
         f"DUPFILE flagged once on re-upload {flagged}/{total}; "
         f"status unchanged {status_kept}/{total}"
     )
+
+
+def check_second_reading(manifest, settings, steps) -> None:
+    """SECOND_READING=never | on_doubt | always on the dev documents (cached reading B)."""
+    dev = [d for d in manifest["documents"] if d["split"] == "dev"]
+    for mode in ("never", "on_doubt", "always"):
+        mode_settings = settings.model_copy(update={"second_reading": mode})
+        ran = status_ok = disagree = filled = 0
+        for entry in dev:
+            context = make_context(entry, mode_settings, None)
+            run_pipeline(steps, context)
+            ran += bool(context.second_note.get("ran"))
+            status_ok += context.status == entry["expected_status"]
+            disagree += sum(
+                i.code.value == "readings_disagree"
+                for i in context.review.issues  # type: ignore[union-attr]
+            )
+            filled += len(context.second_note.get("filled", []))  # type: ignore[arg-type]
+        print(
+            f"SECOND   {mode:9} second reading ran on {ran}/{len(dev)} dev documents; "
+            f"readings_disagree warnings {disagree}; filled {filled}; "
+            f"status equals manifest {status_ok}/{len(dev)}"
+        )
 
 
 if __name__ == "__main__":

@@ -165,3 +165,29 @@ def test_tidy_issues_keeps_the_original_order_within_a_severity():
     b = make_issue(IssueCode.OLD_INVOICE, "b")
     c = make_issue(IssueCode.MISSING_TOTAL, "c")
     assert [i.message for i in tidy_issues([a, b, c])] == ["c", "a", "b"]
+
+
+def test_readings_that_differ_on_a_required_field_send_the_document_to_review():
+    clean = review_invoice()
+    assert clean.status == "ready"
+    result = review_invoice(agreement={"total": "differ"})
+    assert result.status == "needs_review"  # confidence capped at 0.5, below the threshold
+    assert result.fields["total"].confidence == 0.5
+    codes = [(i.code, i.field) for i in result.issues]
+    assert (IssueCode.READINGS_DISAGREE, "total") in codes
+    # one problem is reported once: the low-confidence warning is dropped for that field
+    assert (IssueCode.LOW_CONFIDENCE_FIELD, "total") not in codes
+    assert all(i.severity == Severity.WARNING for i in result.issues)  # no new blocking error
+
+
+def test_a_difference_on_an_optional_field_warns_but_does_not_change_the_status():
+    result = review_invoice(agreement={"line_items[0].description": "differ"})
+    assert result.status == "ready"
+    assert [i.code for i in result.issues] == [IssueCode.READINGS_DISAGREE]
+
+
+def test_agreeing_missing_and_no_second_reading_change_nothing():
+    base = review_invoice()
+    for agreement in (None, {}, {"total": "agree", "vendor_name": "missing"}):
+        result = review_invoice(agreement=agreement)
+        assert result.status == base.status and result.issues == base.issues

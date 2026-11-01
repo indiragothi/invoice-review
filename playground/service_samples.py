@@ -18,7 +18,12 @@ BACKEND = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from pipeline_samples import TODAY, cached_extractor, cached_ledger_suggester  # noqa: E402
+from pipeline_samples import (  # noqa: E402
+    TODAY,
+    cached_extractor,
+    cached_ledger_suggester,
+    cached_second_reader,
+)
 
 from app.config import APP_CONFIG, get_settings  # noqa: E402
 from app.database import create_db_engine, session_factory  # noqa: E402
@@ -47,6 +52,9 @@ def main() -> None:
     def ledger(document, client_name):
         return cached_ledger_suggester(current["stem"])(document, client_name)
 
+    def second_reader(images, document_type):
+        return cached_second_reader(current["stem"])(images, document_type)
+
     shutil.rmtree(WORK, ignore_errors=True)
     engine = create_db_engine(WORK / "check.db")
     repo = DocumentRepository(session_factory(engine)())
@@ -55,6 +63,7 @@ def main() -> None:
         get_settings(),
         extractor,
         ledger,
+        second_reader,
         reading_cache=ReadingCache(WORK / "readings"),
         data_dir=WORK,
         today=lambda: TODAY,

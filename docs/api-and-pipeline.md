@@ -49,7 +49,7 @@ A document that fails after it was saved (upload or retry) answers `502` (provid
 
 `PUT /api/documents/{id}` with `{ "fields": { "<path>": "<text>" | null } }` (1 to 200 entries). A path is one of the keys of `review_data.fields`: `vendor_gstin`, `invoice_date`, `total`, `line_items[2].taxable_amount`, `tax_lines[0].amount`, ... The value is the corrected text exactly as the reviewer types it (`"1,18,000.00"`, `"14-08-2026"`); `null` or empty clears the field. The server normalises it like any extracted value.
 
-An edited field gets `source: "human"`, `confidence: 1.0` and `grounding: "grounded"` (`"missing"` when cleared); `original` keeps the model's reading, and the history gets an `edited` entry with `{path: {from, to}}`. Then every rule runs again, including the duplicate checks, and the status follows the result: `needs_review` -> `ready` when the last blocking error is fixed, `ready` -> `needs_review` when an edit breaks a rule. A format cap still applies to a human value that fails its own format (an invalid GSTIN is capped at 0.3 and keeps its blocking error).
+An edited field gets `source: "human"`, `confidence: 1.0` and `grounding: "grounded"` (`"missing"` when cleared); `original` keeps the model's reading, and the history gets an `edited` entry with `{path: {from, to}}`. Then every rule runs again, including the duplicate checks, and the status follows the result: `needs_review` -> `ready` when the last blocking error is fixed, `ready` -> `needs_review` when an edit breaks a rule. Sending a field's **current value again** counts as a confirmation when the reviewer has not touched that field yet: they looked at the page and agree, so it becomes theirs and its low-confidence / disagreement warnings go (this is how a field the two readings disagreed about is cleared without changing it). A value that is already the reviewer's and unchanged records nothing. A format cap still applies to a human value that fails its own format (an invalid GSTIN is capped at 0.3 and keeps its blocking error).
 
 `404` unknown document; `422` unknown path (nothing is applied), a value over 500 characters or an empty `fields`; `409` for a decided (`approved` / `rejected`), `failed` or `processing` document. Adding or removing line-item rows is not supported yet.
 
@@ -83,7 +83,7 @@ Text that comes from the bill or the upload is made safe for spreadsheets: a val
 | `status` | string | `processing`, `ready`, `needs_review`, `approved`, `rejected`, `failed` |
 | `classification` | object \| null | `invoice` / `receipt` + reason |
 | `review_data` | object \| null | Flat editable fields; each with value, source, confidence, agreement, evidence box (see [architecture.md](architecture.md#7-persistence)) |
-| `document_review` | object \| null | Second-reading comparison per field |
+| `document_review` | object \| null | `{ mode, ran, why, filled, agreement: {path: agree\|differ\|missing\|filled}, reading_b }`; `ran` is false when `SECOND_READING` skipped it (`never`, or `on_doubt` with no doubt) or the call failed |
 | `issues` | array | `{ code, severity, field, message, suggestion }`; `supplier_fixable` is true when the supplier can fix it (fixed list) |
 | `ledger` | object \| null | `{ suggested_code, reason, selected_code, overridden }` |
 | `document_type` | string \| null | `invoice` or `receipt` |

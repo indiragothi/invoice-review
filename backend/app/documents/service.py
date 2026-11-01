@@ -17,6 +17,7 @@ from app.correction_email.eligibility import eligible_issues
 from app.documents.intake import check_upload, new_stored_filename, save_upload, uploads_dir
 from app.documents.models import Document, DocumentStatus
 from app.documents.projection import (
+    agreement_of,
     apply_edits,
     build_review_data,
     extraction_with_values,
@@ -26,7 +27,13 @@ from app.documents.projection import (
 from app.documents.repository import DocumentRepository
 from app.export.rows import Cell, ExportFacts, build_row
 from app.normalisation.assemble import normalise_extraction
-from app.pipeline.base import Extractor, LedgerSuggester, PipelineContext, run_pipeline
+from app.pipeline.base import (
+    Extractor,
+    LedgerSuggester,
+    PipelineContext,
+    SecondReader,
+    run_pipeline,
+)
 from app.pipeline.steps import build_default_pipeline
 from app.providers import EmailResult, ProviderError
 from app.reader import render_images
@@ -73,6 +80,7 @@ class DocumentService:
         settings: Settings,
         extractor: Extractor,
         ledger_suggester: LedgerSuggester,
+        second_reader: SecondReader,
         reading_cache: ReadingCache | None = None,
         email_drafter: EmailDrafter | None = None,
         data_dir: Path | None = None,
@@ -82,6 +90,7 @@ class DocumentService:
         self.settings = settings
         self.extractor = extractor
         self.ledger_suggester = ledger_suggester
+        self.second_reader = second_reader
         self.reading_cache = reading_cache
         self.email_drafter = email_drafter
         self.data_dir = data_dir
@@ -197,6 +206,14 @@ class DocumentService:
         return rows
 
     @staticmethod
+    def _agreement(document: Document, review_data: dict[str, Any]) -> dict[str, Any]:
+        """The second-reading result still in force: per field (not for an edited field, which is
+        the human's value) plus the table-level differences, which no single edit can resolve."""
+        stored = (document.document_review or {}).get("agreement", {})
+        tables = {key: stored[key] for key in ("line_items", "tax_lines") if key in stored}
+        return {**agreement_of(review_data), **tables}
+
+    @staticmethod
     def _parsed(document: Document) -> Invoice | Receipt:
         """The normalised document as it is now: the stored extraction with the review values."""
         assert document.extraction is not None and document.review_data is not None
@@ -267,6 +284,7 @@ class DocumentService:
             existing=repository.existing_keys(
                 document.client_id, parsed.document_type, exclude_id=document.id
             ),
+            agreement=self._agreement(document, review_data),
         )
         issues = list(result.issues)
         if issue := duplicate_file_issue(
@@ -329,6 +347,7 @@ class DocumentService:
             settings=self.settings,
             extractor=self.extractor,
             ledger_suggester=self.ledger_suggester,
+            second_reader=self.second_reader,
             today=self.today(),
             reading_cache=self.reading_cache,
             known_files=repository.known_files(exclude_id=document.id),
@@ -338,12 +357,15 @@ class DocumentService:
         )
         context, error = run_pipeline(build_default_pipeline(), context)
 
-        calls = [c for c in (context.call, context.ledger_call) if c is not None]
+        calls = [
+            c for c in (context.call, context.second_call, context.ledger_call) if c is not None
+        ]
         pipeline_run: dict[str, Any] = {
             "provider": self.settings.llm_provider,
             "model": self.settings.active_model,
             "prompt_versions": {
                 "extraction": context.call.prompt_version if context.call else None,
+                "review": context.second_call.prompt_version if context.second_call else None,
                 "ledger": context.ledger_call.prompt_version if context.ledger_call else None,
             },
             "calls": len(calls),
@@ -379,7 +401,17 @@ class DocumentService:
                 document_type=context.document.document_type,
                 duplicate_key=key_to_json(key) if key else None,
                 issues=[i.model_dump(mode="json") for i in context.review.issues],
-                review_data=build_review_data(context.review.fields),
+                review_data=build_review_data(context.review.fields, context.agreement),
+                document_review={
+                    "mode": self.settings.second_reading,
+                    **context.second_note,
+                    "agreement": context.agreement,
+                    "reading_b": (
+                        context.second_reading.model_dump(mode="json")
+                        if context.second_reading
+                        else None
+                    ),
+                },
                 ledger={
                     "suggested_code": context.ledger.suggested_code,
                     "reason": context.ledger.reason,

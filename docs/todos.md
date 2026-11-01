@@ -11,7 +11,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 | M0 Plan | ✅ Done |
 | M1 Scaffold, samples, read + extract | ✅ Done (NVIDIA check optional, open) |
 | M2 Ground + validate | ✅ Done (`READINGS_DISAGREE` and `DUPLICATE_FILE` move to M3) |
-| M3 Pipeline + API | 🟨 In progress (slices 19-31 done) |
+| M3 Pipeline + API | 🟨 In progress (slices 19-32 done; the M3 walkthrough is left) |
 | M4 Review UI | ⬜ Not started |
 | M5 Evaluation | ⬜ Not started |
 | M6 Ship | ⬜ Not started |
@@ -105,9 +105,9 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 ## M3 Pipeline + API
 
 - [x] `PipelineContext` and `build_default_pipeline()`
-- [ ] Steps: reading → extraction → grounding → document review (second reading, merge) → validation → ledger suggestion *(reading, extraction, grounding, validation done; second reading and ledger to do)*
+- [x] Steps: reading → extraction → grounding → document review (second reading, merge) → validation → ledger suggestion
 - [x] Second reading, pieces (slice 31): reading B from images (`review_v1`), field-by-field comparison, gap fill, 0.5 caps and the `READINGS_DISAGREE` warning as pure functions, tried on the dev split
-- [ ] Second reading, wiring (slice 32): `DocumentReviewStep` with `SECOND_READING=always|on_doubt|never`, `document_review` and `agreement` saved, edits clear the disagreement
+- [x] Second reading, wiring (slice 32): `DocumentReviewStep` with `SECOND_READING=always|on_doubt|never`, `document_review` and per-field `agreement` saved, a reviewer's edit or confirmation clears the disagreement
 - [x] `existing` duplicate keys and `known_files` from the repository (skips the document itself; rejected and failed records ignored)
 - [x] `DUPLICATE_FILE` warning (SHA-256); the repository must supply `known_files` later
 - [x] Cache readings by SHA-256

@@ -14,7 +14,7 @@ appears in the words of the page. Pure code: no I/O, no model calls.
 """
 
 import re
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from typing import Literal
 
 from app.normalisation.amounts import parse_amount, parse_percent
@@ -24,6 +24,7 @@ from app.normalisation.text import normalise_gstin
 from app.pipeline.grounding import _evidenced_fields, _squash, _windows
 from app.reader.schemas import ReadDocument
 from app.schemas.extraction import Evidenced, Extraction
+from app.schemas.fields import GroundedField
 from app.schemas.second_reading import SecondReading
 
 Agreement = Literal["agree", "differ", "missing", "filled"]
@@ -181,3 +182,15 @@ def _set(data: dict, path: str, value: str, words: list[str]) -> None:
 
 def disagreeing_paths(agreement: Mapping[str, Agreement]) -> Iterator[str]:
     return (path for path, status in agreement.items() if status == "differ")
+
+
+def in_doubt(
+    fields: Mapping[str, GroundedField], required: Sequence[str], threshold: float
+) -> bool:
+    """Is a required field missing, not found in the words, or below the confidence threshold?
+    That is when `SECOND_READING=on_doubt` spends the extra call."""
+    for key in required:
+        field = fields.get(key)
+        if field is None or field.grounding != "grounded" or field.confidence < threshold:
+            return True
+    return False

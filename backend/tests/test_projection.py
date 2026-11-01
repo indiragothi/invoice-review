@@ -107,10 +107,15 @@ def test_clearing_a_field_makes_it_missing_and_filling_a_missing_one_makes_it_gr
     assert edited["fields"]["buyer_gstin"]["source"] == "human"
 
 
-def test_an_unchanged_value_is_not_an_edit():
-    data = build_review_data(grounded())
-    edited, changes = apply_edits(data, {"vendor_gstin": "23QSSPM6142B1ZF"})
-    assert changes == {} and edited["fields"]["vendor_gstin"]["source"] == "ocr"
+def test_the_same_value_confirms_a_field_once_and_then_changes_nothing():
+    data = build_review_data(grounded(), {"vendor_gstin": "differ"})
+    confirmed, changes = apply_edits(data, {"vendor_gstin": "23QSSPM6142B1ZF"})
+    entry = confirmed["fields"]["vendor_gstin"]
+    assert (entry["source"], entry["confidence"], entry["agreement"]) == ("human", 1.0, None)
+    assert entry["value"] == entry["original"] == "23QSSPM6142B1ZF"
+    assert changes == {"vendor_gstin": {"from": "23QSSPM6142B1ZF", "to": "23QSSPM6142B1ZF"}}
+    again, changes = apply_edits(confirmed, {"vendor_gstin": "23QSSPM6142B1ZF"})
+    assert changes == {} and again == confirmed
 
 
 def test_unknown_paths_and_bad_values_are_rejected_without_a_partial_edit():
@@ -151,3 +156,16 @@ def test_refresh_keeps_the_original_reading_after_an_edit_and_a_cap():
     assert entry["original"] == "23QSSPM6142B1ZF"  # the model's reading, not the edit
     assert entry["value"] == "23QXGPS4821K1ZU" and entry["confidence"] == 0.3
     assert entry["source"] == "human"
+
+
+def test_agreement_is_kept_per_field_and_an_edit_clears_it():
+    from app.documents.projection import agreement_of
+
+    data = build_review_data(grounded(), {"vendor_gstin": "differ", "tax_lines[0].amount": "agree"})
+    assert data["fields"]["vendor_gstin"]["agreement"] == "differ"
+    assert agreement_of(data) == {"vendor_gstin": "differ", "tax_lines[0].amount": "agree"}
+
+    edited, _ = apply_edits(data, {"vendor_gstin": "23QXGPS4821K1ZU"})
+    assert edited["fields"]["vendor_gstin"]["agreement"] is None  # the human's value
+    assert agreement_of(edited) == {"tax_lines[0].amount": "agree"}
+    assert data["fields"]["vendor_gstin"]["agreement"] == "differ"  # the input is not changed

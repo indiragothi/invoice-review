@@ -748,3 +748,31 @@ Proved in `playground/` first (CLAUDE.md); the wiring into the pipeline is slice
 - **Checkpoint:** `second_reading_samples.py --split dev` prints `B right 91/91` from the cache.
 
 Important locations: `backend/app/pipeline/agreement.py`, `backend/app/validation/agreement.py`, `backend/app/providers/prompts/review_v1.md`, `backend/app/schemas/second_reading.py`, `playground/second_reading_samples.py`.
+
+### Slice 32: Second reading in the pipeline (document review)  (milestone M3, part 2 of 2)
+
+- **Outcome:**
+  - `DocumentReviewStep` between grounding and validation, driven by `SECOND_READING`: `never` skips it; `on_doubt` (default) runs it only when a required field is missing, not found in the words or below the 0.80 threshold (`pipeline.agreement.in_doubt`, pure); `always` runs it every time. It sends the page images (`review_from_images`), compares with reading A and fills gaps only from values found in the page words (`compare_and_fill`). A value the second reading supplied gets source `reading_b`. If the call fails the document goes on without it (the note says why); a second reading is a check, not a requirement.
+  - `review_document(..., agreement)`: differing or single-sourced values are capped at 0.5, each differing field gets a `READINGS_DISAGREE` warning, and the low-confidence warning for the same field is dropped (one problem, reported once). A required field below the threshold still sends the document to `needs_review`.
+  - Saved: `document_review` (`mode`, `ran`, `why`, `filled`, `agreement`, `reading_b`), the `agreement` of each field inside `review_data`, a third call and the prompt version `review` in `pipeline_run`. `create_app(..., second_reader, settings)` makes the call injectable like the others.
+  - Edits: a field the reviewer edits **or confirms** is theirs (`human`, 1.0) and is no longer compared; table-level differences (`line_items`, `tax_lines`) stay. A same-value edit of a field that is not yet theirs now counts as a confirmation (see below).
+- **Bug found by the check:** confirming a disputed value (sending the value that is already there) did nothing, because `apply_edits` ignored an unchanged value, so the disagreement could never be cleared without changing a correct value. Now an unchanged value counts when the field is not yet the reviewer's; a value that already is theirs still records nothing (tests added).
+- **Why:** this is the answer to a model that is wrong without noticing: two independent readings, and a disagreement that costs confidence and goes to a human. Reading B costs a third call, so the setting decides when it is worth it; M5 measures that.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest
+  uv run --locked --no-sync python ../playground/pipeline_samples.py     # prints the SECOND lines for the three modes
+  uv run --locked --no-sync python ../playground/api_samples.py
+  ```
+
+- **Live calls used:** 0 (reading B for the dev documents is cached from slice 31; the API check uses a changed copy of it).
+- **Result:** 324 tests pass (5 new); ruff clean. Offline on the 7 dev documents: `never` ran 0 times, `on_doubt` ran 0 times (no required field is in doubt on these clean samples), `always` ran 7 times with 2 `readings_disagree` warnings and 0 filled; status equals the manifest in all three modes (7/7), and all 12 documents still give the manifest's status and errors. `api_samples.py` passes 91/91 (5 new): with `always` and a reading B that disagrees about the total, the fuel receipt goes `ready` -> `needs_review` with exactly one `readings_disagree` on `total` and no new blocking error, confidence 0.5, 3 calls and `review_v1` in the run record, no supplier email action; confirming the value makes it `ready` (human, agreement cleared); with `never` it is `ready` with 2 calls.
+- **What this does not show:** whether the second reading helps. On the clean dev samples it never changed a status; `on_doubt` never fired; and the `filled` path (A missed a field and B supplied it from the page words) has only been tested with made-up data, never with a real document. That needs the degraded documents of M5. A real run through Gemini (3 calls per document) has not been done through the HTTP API yet: that is the M3 walkthrough.
+- **Checkpoint:** `pipeline_samples.py` prints the three `SECOND` lines above; `api_samples.py` ends with `API 91/91 checks passed`.
+
+Important locations: `backend/app/pipeline/steps.py` (`DocumentReviewStep`), `backend/app/pipeline/agreement.py`, `backend/app/validation/review.py`, `backend/app/documents/service.py`, `backend/app/documents/projection.py`.
+
+#### M3 summary
+
+Slices 19-32 built the pipeline, intake, repository, service, every route in `api-and-pipeline.md` except the password gate (M6), the ledger and correction-email steps, export and the second reading. All of it was checked offline with cached model answers and a temporary database (`api_samples.py`, 91 checks) and with 324 pytest tests. **Not yet done for the M3 exit:** a real walkthrough of the 12 samples through the running server with live Gemini calls (about 24 to 36 calls, `curl` or Swagger), and a look at the real `/docs`, a downloaded XLSX and a rejected 50-page PDF by you.

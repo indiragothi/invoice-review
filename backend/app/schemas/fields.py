@@ -15,7 +15,7 @@ from app.reader.schemas import Box
 Grounding = Literal["grounded", "ungrounded", "missing"]
 
 # human: the reviewer typed or accepted the value (confidence 1.0).
-FieldSource = Literal["pdf_text", "ocr", "human"]
+FieldSource = Literal["pdf_text", "ocr", "reading_b", "human"]
 
 
 class GroundedField(BaseModel):

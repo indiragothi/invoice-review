@@ -35,7 +35,10 @@ class InvalidValueError(ValueError):
     pass
 
 
-def build_review_data(fields: Mapping[str, GroundedField]) -> dict[str, Any]:
+def build_review_data(
+    fields: Mapping[str, GroundedField], agreement: Mapping[str, str] | None = None
+) -> dict[str, Any]:
+    agreement = agreement or {}
     return {
         "fields": {
             path: {
@@ -44,7 +47,7 @@ def build_review_data(fields: Mapping[str, GroundedField]) -> dict[str, Any]:
                 "source": field.source,
                 "confidence": field.confidence,
                 "grounding": field.grounding,
-                "agreement": None,
+                "agreement": agreement.get(path),
                 "evidence": {"page": field.page, "word_ids": field.evidence, "box": field.box},
             }
             for path, field in fields.items()
@@ -64,6 +67,16 @@ def refresh_review_data(
             entry["original"] = old["original"]
             entry["agreement"] = old["agreement"]
     return refreshed
+
+
+def agreement_of(review_data: Mapping[str, Any]) -> dict[str, str]:
+    """The second-reading result per field, from `review_data`. A field the reviewer edited has
+    none: it is the human's value and is no longer compared."""
+    return {
+        path: entry["agreement"]
+        for path, entry in review_data["fields"].items()
+        if entry.get("agreement") and entry["source"] != "human"
+    }
 
 
 def grounded_fields(review_data: Mapping[str, Any]) -> dict[str, GroundedField]:
@@ -96,14 +109,17 @@ def apply_edits(
             raise UnknownFieldError(path)
         value = _clean(path, raw_value)
         entry = fields[path]
-        if value == entry["value"]:
-            continue
+        if value == entry["value"] and entry["source"] == "human":
+            continue  # already the reviewer's value: nothing to record
+        # The same value sent for a field the reviewer has not yet touched is a confirmation:
+        # they looked at the page and agree. It becomes theirs, and its warnings go.
         changes[path] = {"from": entry["value"], "to": value}
         entry.update(
             value=value,
             source="human",
             confidence=1.0,
             grounding="grounded" if value else "missing",
+            agreement=None,
         )
     return {"fields": fields}, changes
 
