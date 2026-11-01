@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from pydantic_ai import Agent
+from pydantic_ai.exceptions import ModelAPIError, ModelHTTPError, UnexpectedModelBehavior
 from pydantic_ai.models import Model
 from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.models.openai import OpenAIChatModel
@@ -16,7 +17,8 @@ from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from app.accounting.catalog import catalog_for_prompt
-from app.config import Settings
+from app.config import APP_CONFIG, Settings
+from app.providers.retry import ProviderError, retry_with_backoff
 from app.reader.schemas import ReadDocument
 from app.schemas.documents import Invoice, Receipt
 from app.schemas.extraction import Extraction
@@ -25,6 +27,26 @@ from app.schemas.ledger import LedgerChoice
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 EXTRACT_PROMPT = "extract_v2"
 LEDGER_PROMPT = "ledger_v1"
+
+_BUSY_STATUS = {429, 500, 502, 503, 504}
+
+
+def _is_busy(error: Exception) -> bool:
+    return isinstance(error, ModelHTTPError) and error.status_code in _BUSY_STATUS
+
+
+def _run_agent[T](agent: Agent[None, T], prompt: str):
+    """Run one agent call with retry on 429 / 5xx; SDK errors become `ProviderError`."""
+    try:
+        return retry_with_backoff(
+            lambda: agent.run_sync(prompt), APP_CONFIG.provider_retry_delays, _is_busy
+        )
+    except (ModelAPIError, UnexpectedModelBehavior) as error:
+        if _is_busy(error):
+            raise ProviderError("The AI provider is busy. Retry later.", busy=True) from error
+        raise ProviderError(
+            "The AI provider could not process this document.", busy=False
+        ) from error
 
 
 @dataclass(frozen=True)
@@ -90,7 +112,7 @@ def extract(
         retries=1,
     )
     started = time.perf_counter()
-    result = agent.run_sync(f"<document>\n{format_words(document)}\n</document>")
+    result = _run_agent(agent, f"<document>\n{format_words(document)}\n</document>")
     usage = result.usage
     return ExtractionResult(
         extraction=result.output,
@@ -145,7 +167,7 @@ def suggest_ledger(
         f"<document>\n{format_for_ledger(document, client_name)}\n</document>"
     )
     started = time.perf_counter()
-    result = agent.run_sync(prompt)
+    result = _run_agent(agent, prompt)
     usage = result.usage
     return LedgerResult(
         choice=result.output,

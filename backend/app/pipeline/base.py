@@ -13,7 +13,7 @@ from PIL import Image
 
 from app.clients import Client
 from app.config import Settings
-from app.providers import CallInfo, ExtractionResult, LedgerResult
+from app.providers import CallInfo, ExtractionResult, LedgerResult, ProviderError
 from app.reader.cache import ReadingCache, sha256_hex
 from app.reader.schemas import ReadDocument
 from app.schemas.documents import Invoice, Receipt
@@ -82,14 +82,15 @@ class Step(Protocol):
 
 def run_pipeline(
     steps: Sequence[Step], context: PipelineContext
-) -> tuple[PipelineContext, str | None]:
-    """Run the steps in order. Returns the context and an error message (None on success)."""
+) -> tuple[PipelineContext, PipelineError | ProviderError | None]:
+    """Run the steps in order. Returns the context and the error that stopped it (None on
+    success): `PipelineError` = the file cannot be used, `ProviderError` = the model call failed."""
     for step in steps:
         started = time.perf_counter()
         try:
             step(context)
-        except PipelineError as error:
-            return context, str(error)
+        except (PipelineError, ProviderError) as error:
+            return context, error
         finally:
             elapsed_ms = round((time.perf_counter() - started) * 1000)
             context.trace.append(StepTrace(step.name, elapsed_ms))

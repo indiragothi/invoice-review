@@ -7,6 +7,7 @@ from app.accounting.catalog import checked_ledger_code
 from app.normalisation.assemble import normalise_extraction
 from app.pipeline.base import PipelineContext, PipelineError, Step
 from app.pipeline.grounding import ground_extraction
+from app.providers import ProviderError
 from app.reader import UnsupportedFileError, read_document, render_images
 from app.schemas.ledger import LedgerSuggestion
 from app.validation.duplicates import duplicate_file_issue
@@ -78,7 +79,14 @@ class LedgerStep:
 
     def __call__(self, context: PipelineContext) -> None:
         assert context.document is not None
-        result = context.ledger_suggester(context.document, context.client.name)
+        try:
+            result = context.ledger_suggester(context.document, context.client.name)
+        except ProviderError as error:
+            # The extraction is worth keeping: the reviewer can pick the ledger by hand.
+            reason = "Ledger suggestion is unavailable ({}). Pick one by hand."
+            reason = reason.format("provider busy" if error.busy else "provider error")
+            context.ledger = LedgerSuggestion(suggested_code=None, reason=reason)
+            return
         context.ledger_call = result.call
         code = checked_ledger_code(result.choice.code)
         reason = result.choice.reason.strip()

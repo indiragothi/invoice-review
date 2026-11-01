@@ -11,7 +11,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 | M0 Plan | ✅ Done |
 | M1 Scaffold, samples, read + extract | ✅ Done (NVIDIA check optional, open) |
 | M2 Ground + validate | ✅ Done (`READINGS_DISAGREE` and `DUPLICATE_FILE` move to M3) |
-| M3 Pipeline + API | 🟨 In progress (slices 19-23 done) |
+| M3 Pipeline + API | 🟨 In progress (slices 19-25 done) |
 | M4 Review UI | ⬜ Not started |
 | M5 Evaluation | ⬜ Not started |
 | M6 Ship | ⬜ Not started |
@@ -113,14 +113,14 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [x] Ledger catalog (`accounting/catalog.py`): 13 fixed ledgers, `checked_ledger_code` rejects anything else
 - [x] Ledger suggestion prompt (`ledger_v1`) + `LedgerStep` (one LLM call over normalised fields; code checks the code)
 - [x] SQLite `documents` table and repository (`database.py`, `documents/models.py`, `documents/repository.py`)
-- [ ] Document service (upload -> pipeline -> save, state transitions)
-- [ ] Upload intake: magic bytes, 5 MB, 5 pages, stored as `<uuid>.<ext>`
+- [x] Document service (upload -> intake -> pipeline -> save; retry of a `failed` document) (`documents/service.py`)
+- [x] Upload intake: magic bytes, 5 MB, 5 pages, stored as `<uuid>.<ext>` (`documents/intake.py`; the HTTP 413 / 415 responses come with the routes)
 - [ ] Routes from `api-and-pipeline.md` (upload, list, get, file, page image, edit, ledger, decision, bulk approve, retry, delete, clients, ledgers)
 - [ ] Approval invariant: `409` with open errors or no ledger; decided records locked
 - [ ] Correction email: eligibility codes + draft endpoint
 - [ ] Export: CSV / XLSX, approved only, formula-injection safe
-- [ ] Retry with backoff on `429`; `failed` + `502` after retries
-- [ ] Pipeline run trace (provider, model, prompt version, calls, ms)
+- [x] Retry with backoff on `429` / 5xx (`providers/retry.py`); `failed` + provider error after retries (the HTTP `502` comes with the routes)
+- [x] Pipeline run trace (provider, model, prompt versions, calls, ms per step) saved in `pipeline_run`
 - [ ] Verify with `curl` / Swagger on the 12 samples
 - [ ] Update `build-along.md` and `api-and-pipeline.md`
 - [ ] **M3 exit:** upload → `ready` / `needs_review` with fields, boxes, issues, ledger; illegal approve returns `409`

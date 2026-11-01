@@ -86,6 +86,8 @@ class AppConfig:
     max_pages: int = 5
     money_tolerance: Decimal = Decimal("1.00")
     confidence_threshold: float = 0.80
+    # Waits before each retry of a busy provider call (429 / 5xx); 4 attempts in all.
+    provider_retry_delays: tuple[float, ...] = (4.0, 12.0, 30.0)
     data_dir: Path = BACKEND_DIR / "data"
     samples_dir: Path = REPO_DIR / "samples"
 

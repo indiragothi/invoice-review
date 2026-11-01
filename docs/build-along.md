@@ -555,3 +555,47 @@ Important locations: `backend/app/providers/prompts/ledger_v1.md`, `backend/app/
 Not built yet: the service (upload -> pipeline -> save), upload intake, routes. `review_data`, `classification`, `extraction` and `history` columns exist but nothing fills them yet (the projection comes with the service). The repository is not covered by pytest (database access, not a pure module); the playground run is its check. There are no migrations: delete `backend/data/*.db` after a schema change.
 
 Important locations: `backend/app/database.py`, `backend/app/documents/models.py`, `backend/app/documents/repository.py`, `playground/repository_samples.py`.
+
+### Slice 24: Upload intake and file storage  (milestone M3)
+
+- **Outcome:** `documents/intake.py`.
+  - `check_upload(data)` decides whether a file may enter the pipeline and returns `AcceptedUpload(content_type, extension, page_count)`. The size is checked first (over 5 MB -> 413), then the type from the first bytes (not PDF, PNG or JPEG -> 415), then the page count (over 5 -> 413). A damaged or password-protected PDF -> 415.
+  - A rejection is an `IntakeError` that carries its HTTP status code and a plain message, so the route only has to pass it on.
+  - `new_stored_filename(ext)` gives `<uuid>.<ext>`; `save_upload(data, name)` writes it to `backend/data/uploads/` (git-ignored). The user's own file name is never used on disk, only kept as a label in the database.
+- **Why:** this is the first line of defence for a file the app did not make (`security.md`). It is pure enough to test with generated PDFs and images, and it runs before any OCR or model call.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest tests/test_intake.py
+  uv run --locked --no-sync python ../playground/intake_samples.py
+  ```
+
+- **Result:** 278 tests pass (6 new); ruff clean. All 12 samples are accepted with the page counts in the manifest (the two-page invoice gives 2). A renamed `.exe` gives 415, a file just over 5 MB gives 413, a damaged PDF gives 415. A 6-page PDF gives 413 (test). No API calls, no new dependency.
+- **Checkpoint:** `intake_samples.py` prints `ACCEPTED 12/12 with the right page count` and three `OK` lines for the bad files.
+
+Not built yet: the routes that turn an `IntakeError` into the response, so the `security.md` checklist lines for the renamed `.exe` and the 50-page PDF stay open until then. Not covered: a PDF with a huge page size or a decompression bomb (page size is not limited yet; rendering uses a fixed DPI and images are capped at 2,200 px, `reader/render.py`).
+
+Important locations: `backend/app/documents/intake.py`, `backend/tests/test_intake.py`, `playground/intake_samples.py`.
+
+### Slice 25: Document service, provider retry and the pipeline run record  (milestone M3)
+
+- **Outcome:**
+  - `providers/retry.py`: `retry_with_backoff(call, delays, is_retryable)` (pure, SDK-free) and `ProviderError(message, busy)`, the only provider error the rest of the app sees. `providers._run_agent` wraps every model call: `429` and `5xx` are retried after 4 s, 12 s and 30 s (`AppConfig.provider_retry_delays`, so 4 attempts); SDK errors are then translated into `ProviderError` (busy or not) with a generic message, never the SDK's text.
+  - Pipeline: `run_pipeline` now returns the error object (`PipelineError` = the file is unusable, `ProviderError` = the model call failed). A ledger failure does **not** fail the document: the extraction is kept, the suggestion has no code and says "Ledger suggestion is unavailable ... Pick one by hand."
+  - `documents/service.py`: `DocumentService.upload(data, filename, client_id)` = client check -> `check_upload` -> store `<uuid>.<ext>` -> create the row (`processing`) -> run the pipeline with `known_files` and `existing_keys` from the repository -> save. The document is always saved, also when the pipeline fails (`failed`, `error_message`). Saved: status, `document_type`, `duplicate_key`, `reading`, `extraction`, `classification`, `issues`, `ledger` (`selected_code` empty: the reviewer confirms), `history` (uploaded / processed / retry) and `pipeline_run` (provider, model, prompt versions, calls, ms per step, reading from cache, error kind). `retry(id)` re-runs a `failed` document from its stored file (`ConflictError` otherwise). Unknown client, unknown document and conflict are their own exceptions for the routes to map to 404 / 404 / 409.
+  - `playground/service_samples.py`: the whole service on the 12 samples with a throw-away database.
+- **Why:** this is the orchestration layer the routes call; state changes live here, not in the routes. Retrying busy providers is the free-tier behaviour from `free-tier-limits.md`.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest
+  uv run --locked --no-sync python ../playground/service_samples.py
+  ```
+
+- **Result:** 283 tests pass (5 new, for the retry helper); ruff clean. Through the service all 12 samples get the manifest's status and their stored file is byte-identical; the 7 dev documents record `ledger_v1` and 2 calls. Uploading sample 01 again gives `duplicate_file` + `duplicate_invoice` and `needs_review`. A renamed `.exe` (415) and an unknown client store no row. With a busy provider the upload is saved as `failed` (error kind `provider`), retrying a non-failed document is a conflict, and retrying the failed one gives `ready`. With a failing ledger call the fuel receipt stays `ready` with no suggested code. No API calls, no new dependency.
+- **What this does not show:** the real `429` path. The backoff logic is tested with plain functions, and `_is_busy` / the SDK error translation have not been exercised against a real rate-limit response (that needs live calls beyond the limit, or a fake server). The retry waits add up to 46 s inside the upload request in the worst case.
+- **Checkpoint:** `service_samples.py` prints `UPLOAD status equals manifest 12/12`, `REUPLOAD file=True invoice=True`, `FAILED status=failed kind=provider` and `RETRY status=ready`.
+
+Not built yet: the routes (the status-code mapping: `IntakeError` 413 / 415, unknown client or document 404, `ConflictError` 409, provider failure 502, "neither invoice nor receipt" 422), the projection into `review_data`, edits, the ledger selection, the decision and the approval invariant.
+
+Important locations: `backend/app/documents/service.py`, `backend/app/providers/retry.py`, `backend/tests/test_retry.py`, `playground/service_samples.py`.
