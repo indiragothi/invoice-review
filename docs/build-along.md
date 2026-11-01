@@ -467,3 +467,24 @@ Important locations: `backend/app/providers/prompts/extract_v2.md`, `backend/app
 Not built yet: second reading + merge, ledger suggestion, caching by SHA-256, `DUPLICATE_FILE` (next slices of M3). No pytest was added: the pipeline wiring is not a pure module (CLAUDE.md), so the offline playground run is its check.
 
 Important locations: `backend/app/pipeline/base.py`, `backend/app/pipeline/steps.py`, `playground/pipeline_samples.py`.
+
+### Slice 20: SHA-256 reading cache and `DUPLICATE_FILE`  (milestone M3)
+
+- **Outcome:**
+  - `reader/cache.py`: `sha256_hex(data)` and `ReadingCache(directory)`. A reading (`ReadDocument` JSON) is stored under the file's SHA-256, so the same bytes are never OCR-ed twice. A damaged or outdated entry counts as a miss. `reader.render_images(data)` renders only the page images (cheap, no OCR) for a cache hit.
+  - `PipelineContext` now has `sha256`, `reading_cache`, `known_files` (`{sha256: document id}`, filled by the service later) and `cache_hit`. `ReadingStep` uses the cache; an empty reading is never cached.
+  - `validation/duplicates.py`: `duplicate_file_issue(sha256, known_files)` gives the `DUPLICATE_FILE` warning. `ValidationStep` adds it; as a warning it does not change the status.
+- **Why:** OCR takes 2.5-7 s per image, and the policy wants a re-upload flagged. Both only need the file hash.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync pytest
+  uv run --locked --no-sync python ../playground/pipeline_samples.py
+  ```
+
+- **Result:** 268 tests pass (1 new); ruff clean. Cached words equal a fresh read on 12/12 samples; reading for all 12 takes 456 ms with the cache (about 17 s cold). Re-uploading each sample flags `duplicate_file` exactly once on 12/12 and leaves the status unchanged. No API calls, no new dependencies.
+- **Checkpoint:** `pipeline_samples.py` prints `CACHE hits 12/12 ...` and `DUPFILE flagged once on re-upload 12/12; status unchanged 12/12`.
+
+Notes: the cache folder (planned under `backend/data/`, git-ignored) is wired in by the service later. Delete it after any change to the reader. The "skip the document itself, rejected and failed records" part of `known_files` / `existing` needs the repository and stays open.
+
+Important locations: `backend/app/reader/cache.py`, `backend/app/pipeline/steps.py`, `backend/tests/test_duplicates.py`.

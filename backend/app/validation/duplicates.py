@@ -98,3 +98,16 @@ def receipt_duplicate_issue(
         f"A receipt from {receipt.merchant_name} on {key.on} for {key.total} already exists "
         f"for this client (document {match}).",
     )
+
+
+def duplicate_file_issue(sha256: str, known_files: Mapping[str, str]) -> ValidationIssue | None:
+    """Warn when the exact same file was uploaded before. `known_files` = `{sha256: document_id}`
+    of the other documents (the service leaves out the document itself). Only a warning: a
+    re-upload of the same bill is often an honest mistake, and the content-based duplicate
+    rules above still decide what blocks."""
+    match = known_files.get(sha256)
+    if match is None:
+        return None
+    return make_issue(
+        IssueCode.DUPLICATE_FILE, f"This exact file was uploaded before (document {match})."
+    )

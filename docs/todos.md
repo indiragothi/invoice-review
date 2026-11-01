@@ -11,7 +11,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 | M0 Plan | ✅ Done |
 | M1 Scaffold, samples, read + extract | ✅ Done (NVIDIA check optional, open) |
 | M2 Ground + validate | ✅ Done (`READINGS_DISAGREE` and `DUPLICATE_FILE` move to M3) |
-| M3 Pipeline + API | 🟨 In progress (slice 19: pipeline skeleton) |
+| M3 Pipeline + API | 🟨 In progress (slices 19-20 done) |
 | M4 Review UI | ⬜ Not started |
 | M5 Evaluation | ⬜ Not started |
 | M6 Ship | ⬜ Not started |
@@ -106,8 +106,9 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 
 - [x] `PipelineContext` and `build_default_pipeline()`
 - [ ] Steps: reading → extraction → grounding → document review (second reading, merge) → validation → ledger suggestion *(reading, extraction, grounding, validation done; second reading and ledger to do)*
-- [ ] From M2: `READINGS_DISAGREE` warning and the 0.5 confidence cap (second reading); `DUPLICATE_FILE` warning (SHA-256); `existing` duplicate keys from the repository (skip the document itself, rejected and failed records)
-- [ ] Cache readings by SHA-256
+- [ ] From M2: `READINGS_DISAGREE` warning and the 0.5 confidence cap (second reading); `existing` duplicate keys from the repository (skip the document itself, rejected and failed records)
+- [x] `DUPLICATE_FILE` warning (SHA-256); the repository must supply `known_files` later
+- [x] Cache readings by SHA-256
 - [ ] Ledger catalog (`accounting/catalog.py`) + suggestion prompt; reject codes not in the catalog
 - [ ] SQLite `documents` table, repository, service
 - [ ] Upload intake: magic bytes, 5 MB, 5 pages, stored as `<uuid>.<ext>`

@@ -8,6 +8,7 @@ from app.schemas.issues import IssueCode, Severity
 from app.validation.duplicates import (
     InvoiceKey,
     ReceiptKey,
+    duplicate_file_issue,
     invoice_duplicate_issue,
     invoice_key,
     receipt_duplicate_issue,
@@ -167,3 +168,13 @@ def test_text_form_is_stable_and_distinguishes_kinds():
     assert invoice_key(inv()).text == f"invoice|{GSTIN}|inv2627001|2026-27"
     assert receipt_key(rcpt()).text == "receipt|hotelsaffron|2026-10-24|1176"
     assert receipt_key(rcpt(total=D("1176"))).text == receipt_key(rcpt()).text
+
+
+def test_duplicate_file_warns_on_same_hash_only():
+    issue = duplicate_file_issue("abc", {"abc": "doc-1", "def": "doc-2"})
+    assert issue is not None
+    assert issue.code == IssueCode.DUPLICATE_FILE
+    assert issue.severity == Severity.WARNING
+    assert "doc-1" in issue.message
+    assert duplicate_file_issue("zzz", {"abc": "doc-1"}) is None
+    assert duplicate_file_issue("abc", {}) is None

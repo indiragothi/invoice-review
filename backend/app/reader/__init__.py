@@ -14,7 +14,13 @@ from app.reader.pdf_text import words_from_text_layer
 from app.reader.render import load_image, render_pdf_page, sniff_content_type
 from app.reader.schemas import ContentType, Page, RawWord, ReadDocument, TextSource, Word
 
-__all__ = ["ReadResult", "UnsupportedFileError", "read_document", "sniff_content_type"]
+__all__ = [
+    "ReadResult",
+    "UnsupportedFileError",
+    "read_document",
+    "render_images",
+    "sniff_content_type",
+]
 
 
 class UnsupportedFileError(ValueError):
@@ -78,3 +84,14 @@ def read_document(data: bytes) -> ReadResult:
     return ReadResult(
         document=ReadDocument(content_type=content_type, pages=pages, words=words), images=images
     )
+
+
+def render_images(data: bytes) -> list[Image.Image]:
+    """Only the page images (cheap, no OCR): used when the words come from the reading cache."""
+    content_type = sniff_content_type(data)
+    if content_type is None:
+        raise UnsupportedFileError("Only PDF, PNG and JPEG files are supported.")
+    if content_type == "application/pdf":
+        with pymupdf.open(stream=data, filetype="pdf") as pdf:
+            return [render_pdf_page(page) for page in pdf]
+    return [load_image(data)]
