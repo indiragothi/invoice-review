@@ -76,6 +76,13 @@ uv run --locked --no-sync python -m scripts.evaluate_corpus --split dev --setup 
 uv run --locked --no-sync pytest                                        # pure-module tests
 ```
 
+Docker (run from the repo root; needs Docker Desktop running):
+
+```powershell
+docker build -t invoice-review .                                  # SPA + API in one image, ~6 min cold
+docker run --rm -p 8000:8000 --env-file backend/.env invoice-review   # http://localhost:8000
+```
+
 Frontend (run from `frontend/`):
 
 ```powershell

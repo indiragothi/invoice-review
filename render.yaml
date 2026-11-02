@@ -1,0 +1,24 @@
+# Render Blueprint: New + > Blueprint > pick this repo and branch. Secrets are asked for in the
+# dashboard (sync: false) and never live in this file. See docs/decisions.md D18.
+services:
+  - type: web
+    name: invoice-review
+    runtime: docker
+    plan: free
+    branch: development
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: false # deploy by hand, so a push does not trigger a 10 minute rebuild
+    envVars:
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash-lite
+      - key: SECOND_READING
+        value: on_doubt
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: APP_ACCESS_PASSWORD
+        sync: false
+      - key: APP_SESSION_SECRET
+        generateValue: true

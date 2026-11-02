@@ -90,6 +90,7 @@ class AppConfig:
     # Waits before each retry of a busy provider call (429 / 5xx); 4 attempts in all.
     provider_retry_delays: tuple[float, ...] = (4.0, 12.0, 30.0)
     data_dir: Path = BACKEND_DIR / "data"
+    frontend_dir: Path = BACKEND_DIR / "static"  # built SPA; only present in the Docker image
     samples_dir: Path = REPO_DIR / "samples"
 
 

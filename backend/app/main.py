@@ -2,6 +2,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.auth.routes import require_session
 from app.auth.routes import router as auth_router
@@ -72,5 +73,10 @@ def create_app(
             "llm_provider": settings.llm_provider,
             "model": settings.active_model,
         }
+
+    # In the Docker image the built SPA sits next to the API, so one origin serves both (no CORS,
+    # the cookie is first-party). Last, so every API route above wins. Absent in local development.
+    if APP_CONFIG.frontend_dir.is_dir():
+        app.mount("/", StaticFiles(directory=APP_CONFIG.frontend_dir, html=True), name="spa")
 
     return app

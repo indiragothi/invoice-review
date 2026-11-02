@@ -30,6 +30,10 @@ Base URL (local): `http://localhost:8000` · Swagger UI: `/docs` · CORS allows 
 | `GET` | `/api/export` | `?format=csv\|xlsx&client_id=` approved records only |
 | `DELETE` | `/api/documents/{id}` | Delete a review and its files (demo reset) |
 
+## Serving the web app
+
+In the Docker image the built SPA is in `backend/static/` and FastAPI serves it at `/` (after every API route, so `/api/*`, `/health` and `/docs` win). The browser then talks to the same origin: the frontend is built with `VITE_API_BASE_URL=/`. Without that folder (local development) nothing is mounted and Vite serves the SPA on port 5173.
+
 ## Password gate
 
 Off unless `APP_ACCESS_PASSWORD` is set (then `APP_SESSION_SECRET` is required too). When on, every route except `/health` and `/api/auth/*` answers `401` without a valid session cookie; the check runs before body validation, so an unsigned request never reaches a handler.
