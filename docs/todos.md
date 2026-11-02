@@ -14,7 +14,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 | M3 Pipeline + API | ✅ Done (your manual check of `/docs` and the XLSX is open; test-split samples are left for M5) |
 | M4 Review UI | ✅ Done (walkthrough run by the owner; demo document 3 used `07-wrong-tax-split` instead of `06`, see `build-along.md`) |
 | M5 Evaluation | ✅ Done (30 documents, Gemini only; see D15 and the README Results) |
-| M6 Ship | 🚧 In progress (gate, login page, 7 of 8 security items and the Dockerfile done; host, deploy, README, video open) |
+| M6 Ship | 🚧 Almost done (live URL, security checklist, Dockerfile, README done; only the demo video is open) |
 | M7 Stretch | ⬜ Not started |
 
 ---
@@ -167,12 +167,12 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 
 - [x] Shared-password gate (`auth/`): backend, checked offline and on a real server
 - [x] Login page (checked in the browser by the owner on 2026-11-02: login, wrong password, sign out)
-- [ ] Security checklist in `security.md`, every item ticked (7 of 8 done; item 7 needs the deployed URL)
+- [x] Security checklist in `security.md`, every item ticked
 - [x] Dockerfile: built SPA + FastAPI in one image; runs locally (checked with `docker run`, see `build-along.md` slice 55)
-- [ ] Choose a free host; deploy with sample data only
-- [ ] README: setup, screenshots, results, live URL
+- [x] Choose a free host; deploy with sample data only (Render free, <https://invoice-review-3f8r.onrender.com/>; scans do not fit in 512 MB, D18)
+- [x] README: setup, results, live URL (screenshots left out for now, by the owner's choice; add them later if wanted)
 - [ ] *(you)* Record a 3-5 minute demo video
-- [ ] Update `build-along.md`
+- [x] Update `build-along.md` (slices 53-56)
 - [ ] **M6 exit:** live URL, video, security checklist done
 
 ## M7 Stretch

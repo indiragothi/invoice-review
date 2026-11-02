@@ -26,5 +26,5 @@ The roadmap asks for a security pass. This is the threat list the build must add
 - [x] `grep` the repo and logs for API keys → none
 - [x] Approve a `needs_review` document via direct API call → `409`
 - [x] Export a vendor name `=HYPERLINK(...)` → rendered as text (CSV and XLSX)
-- [ ] Deployed app without the password cookie → `401` on every `/api/documents` route (checked locally with the gate on: `auth_samples.py`; repeat on the live URL after deploy)
+- [x] Deployed app without the password cookie → `401` on every `/api/documents` route (live URL, 2026-11-02: 15 route/method pairs; also `auth_samples.py` locally)
 - [x] Approve a `ready` document with no ledger selected → `409`

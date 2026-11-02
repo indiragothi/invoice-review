@@ -6,6 +6,15 @@ A human-in-the-loop pipeline that reads GST invoices and receipts (PDF, scan, ph
 
 Built as Project 1 ("Invoice and Receipt Extractor") of the [100 Days of AI Engineering](https://ai-engineer-roadmap-2026.vercel.app/100-days/projects/) roadmap, using Dave Ebbelaar's [e2e-invoice-review](https://github.com/daveebbelaar/e2e-invoice-review) as the structural reference.
 
+## Live demo
+
+**<https://invoice-review-3f8r.onrender.com/>**: password on request.
+
+- It runs on Render's **free plan** (512 MB RAM). After 15 minutes without a visitor it goes to sleep, and the first request then takes about a minute.
+- **Nothing is kept.** The database and uploads are lost whenever the service restarts, so start by uploading a sample: the files are in [`samples/generated/`](https://github.com/indiragothi/invoice-review/tree/development/samples/generated) (all fictional).
+- **Use text-layer PDFs here** (samples 01-09, 13-18, 23-26). Scans, photos and receipt images need OCR, which needs more than 512 MB: in a local container limited to 512 MB the first scan was killed for lack of memory, so expect an error on those until the host changes ([D18](docs/decisions.md)). They work when you run the app yourself (below) or in Docker without the limit.
+- The Gemini free tier is shared by every visitor, hence the password. Each document costs about 2 calls.
+
 ## How it works
 
 ```mermaid
@@ -53,7 +62,36 @@ Python 3.12+, [uv](https://docs.astral.sh/uv/), Node.js 22+, pnpm, and a free Ge
 
 ## Setup
 
-Setup commands are added in milestone M1. Copy `backend/.env.example` to `backend/.env` and `frontend/.env.example` to `frontend/.env`, then add your keys.
+Windows / PowerShell commands; they are the same elsewhere apart from `copy`.
+
+**Backend** (from `backend/`):
+
+```powershell
+uv sync --locked
+copy .env.example .env        # then set GEMINI_API_KEY and GEMINI_MODEL
+uv run --locked --no-sync uvicorn app.main:create_app --factory --reload --port 8000
+```
+
+**Frontend** (from `frontend/`, a second terminal):
+
+```powershell
+pnpm install --frozen-lockfile
+copy .env.example .env
+pnpm dev                       # http://localhost:5173
+```
+
+Leave `APP_ACCESS_PASSWORD` unset to run without the login screen; set it together with `APP_SESSION_SECRET` to turn the password gate on. Restart the backend after editing `.env`.
+
+**Docker** (from the repo root; one image with the app and the API):
+
+```powershell
+docker build -t invoice-review .
+docker run --rm -p 8000:8000 --env-file backend/.env invoice-review     # http://localhost:8000
+```
+
+**Checks** (from `backend/`, none of them calls the model): `uv run --locked --no-sync pytest`, `ruff check app scripts tests ../playground`, `python ../playground/auth_samples.py`, `python ../playground/security_samples.py`. The full list is in [CLAUDE.md](CLAUDE.md). The sample documents are rebuilt with `python -m scripts.generate_samples`.
+
+**Deploying:** [`render.yaml`](render.yaml) is a Render Blueprint (Docker, free plan). It asks for `GEMINI_API_KEY` and `APP_ACCESS_PASSWORD` in the dashboard; keys are never in the repo.
 
 ## Results
 

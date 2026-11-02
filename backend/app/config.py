@@ -23,6 +23,8 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         env_ignore_empty=True,
         extra="ignore",
+        # A validation error must not print the input: it contains the keys and the password.
+        hide_input_in_errors=True,
     )
 
     llm_provider: Literal["gemini", "nvidia"] = "gemini"
