@@ -4,7 +4,7 @@ A value that cannot be normalised becomes None here. The original text stays ava
 `GroundedField.raw` of the same field, so rules can tell "not printed" from "unreadable".
 """
 
-from app.normalisation.amounts import parse_amount, parse_percent
+from app.normalisation.amounts import parse_amount, parse_percent, parse_quantity
 from app.normalisation.dates import parse_date
 from app.normalisation.states import state_code_from_text
 from app.normalisation.text import clean_text, normalise_gstin
@@ -16,7 +16,7 @@ def _line_item(item: ExtractedLineItem) -> LineItem:
     return LineItem(
         description=clean_text(item.description.value),
         hsn_sac=clean_text(item.hsn_sac.value),
-        quantity=parse_amount(item.quantity.value),
+        quantity=parse_quantity(item.quantity.value),
         rate=parse_amount(item.rate.value),
         gst_rate=parse_percent(item.gst_rate.value),
         taxable_amount=parse_amount(item.taxable_amount.value),

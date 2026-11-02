@@ -158,3 +158,15 @@ def test_state_code_from_gstin():
     assert state_code_from_gstin("29QKDPK5274H1ZH") == "29"
     assert state_code_from_gstin("00ABCDE1234F1Z5") is None
     assert state_code_from_gstin(None) is None
+
+
+def test_a_quantity_with_a_unit_is_its_leading_number():
+    from app.normalisation.amounts import parse_quantity
+
+    assert parse_quantity("20 ream") == Decimal("20")
+    assert parse_quantity("4unit") == Decimal("4")
+    assert parse_quantity("1,200 pcs") == Decimal("1200")
+    assert parse_quantity("42.50 L") == Decimal("42.50")
+    assert parse_quantity("20") == Decimal("20")
+    assert parse_quantity("pcs 20") is None
+    assert parse_quantity(None) is None

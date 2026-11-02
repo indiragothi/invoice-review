@@ -29,6 +29,7 @@ These rules are plain, testable Python in one pure module (`backend/app/validati
 | `MISSING_TOTAL` | Grand total is missing |
 | `MISSING_VENDOR_GSTIN` | Vendor GSTIN is missing on a tax invoice |
 | `INVALID_VENDOR_GSTIN` | Vendor GSTIN fails the 15-character format or checksum |
+| `VENDOR_IS_CLIENT` | Vendor GSTIN equals the selected client's GSTIN. A purchase bill is never issued by the client itself, so the "Bill To" GSTIN was read as the vendor's (the real vendor GSTIN may be missing from the bill). Not supplier-fixable |
 | `INVALID_BUYER_GSTIN` | Buyer GSTIN is present but fails format / checksum |
 | `BUYER_NOT_CLIENT` | Buyer GSTIN is present and differs from the selected client's GSTIN (ITC would be at risk) |
 | `LINE_ITEMS_SUM_MISMATCH` | Sum of line taxable amounts differs from taxable value by more than tolerance |
@@ -65,7 +66,7 @@ Receipts need fewer fields. Requiring an invoice number or buyer GSTIN on a petr
 | `MISSING_MERCHANT` | Merchant name is empty |
 | `MISSING_RECEIPT_DATE` / `INVALID_DATE` / `AMBIGUOUS_DATE` | As for invoices |
 | `MISSING_TOTAL` | Total is missing |
-| `LINE_ITEMS_SUM_MISMATCH` | If line items exist, their sum plus tax must match the total |
+| `LINE_ITEMS_SUM_MISMATCH` | If line items exist, their sum plus tax must match the total. A total that equals the line items alone also passes: many receipts print prices that already include GST and show the tax rows for information only |
 | `INVALID_VENDOR_GSTIN` | Only if a GSTIN is printed and it fails format / checksum |
 | `UNGROUNDED_REQUIRED_FIELD` | As for invoices |
 | `DUPLICATE_RECEIPT` | Same merchant + date + total already exists for this client |
@@ -146,4 +147,4 @@ Per-field confidence is computed by code:
 | Agreement | Readings agree → kept; differ → capped at 0.5 |
 | Format check | Value fails its own format (GSTIN, date, amount) → capped at 0.3 |
 
-A model's self-reported confidence is never used. The threshold (default 0.80) is tuned on the dev split of the evaluation set, never on the test split.
+A model's self-reported confidence is never used. The threshold (default 0.70, decision D17) is tuned on the dev split of the evaluation set, never on the test split.

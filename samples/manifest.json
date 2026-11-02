@@ -794,6 +794,1457 @@
         "sgst": "28.00",
         "igst": "0.00"
       }
+    },
+    {
+      "file": "generated/13-furniture-intra.pdf",
+      "split": "dev",
+      "client": "C001",
+      "type": "invoice",
+      "scenario": "happy_intra_state",
+      "pages": 1,
+      "text_layer": true,
+      "expected_status": "ready",
+      "expected_errors": [],
+      "expected_ledger": "1500",
+      "fields": {
+        "vendor_name": "Shakti Furniture Works",
+        "vendor_gstin": "23QSWFS6613K1Z7",
+        "invoice_number": "SFW/26-27/0231",
+        "invoice_date": "2026-09-25",
+        "total": "69856.00",
+        "round_off": "0.00",
+        "line_items": [
+          {
+            "description": "Executive office chair",
+            "hsn_sac": "9401",
+            "quantity": "6",
+            "rate": "4200.00",
+            "gst_rate": "18",
+            "taxable_amount": "25200.00"
+          },
+          {
+            "description": "Steel almirah 2-door",
+            "hsn_sac": "9403",
+            "quantity": "2",
+            "rate": "9800.00",
+            "gst_rate": "18",
+            "taxable_amount": "19600.00"
+          },
+          {
+            "description": "Computer table 4 ft",
+            "hsn_sac": "9403",
+            "quantity": "4",
+            "rate": "3600.00",
+            "gst_rate": "18",
+            "taxable_amount": "14400.00"
+          }
+        ],
+        "buyer_name": "Shree Ganesh Traders",
+        "buyer_gstin": "23QXGPS4821K1ZU",
+        "place_of_supply": "23",
+        "taxable_value": "59200.00",
+        "cgst": "5328.00",
+        "sgst": "5328.00",
+        "igst": "0.00"
+      }
+    },
+    {
+      "file": "generated/14-packaging-intra.pdf",
+      "split": "test",
+      "client": "C002",
+      "type": "invoice",
+      "scenario": "happy_intra_state",
+      "pages": 1,
+      "text_layer": true,
+      "expected_status": "ready",
+      "expected_errors": [],
+      "expected_ledger": "5110",
+      "fields": {
+        "vendor_name": "Kothrud Packaging Supplies",
+        "vendor_gstin": "27QKPCS5207M1ZS",
+        "invoice_number": "KPS/2627/0764",
+        "invoice_date": "2026-10-15",
+        "total": "17606.00",
+        "round_off": "0.40",
+        "line_items": [
+          {
+            "description": "Paper napkins (carton of 50 packs)",
+            "hsn_sac": "4818",
+            "quantity": "12",
+            "rate": "640.00",
+            "gst_rate": "18",
+            "taxable_amount": "7680.00"
+          },
+          {
+            "description": "Disposable plates 10 in (pack of 100)",
+            "hsn_sac": "4823",
+            "quantity": "30",
+            "rate": "118.00",
+            "gst_rate": "18",
+            "taxable_amount": "3540.00"
+          },
+          {
+            "description": "Takeaway containers 500 ml (pack of 50)",
+            "hsn_sac": "3923",
+            "quantity": "20",
+            "rate": "185.00",
+            "gst_rate": "18",
+            "taxable_amount": "3700.00"
+          }
+        ],
+        "buyer_name": "Annapurna Restaurant Pvt Ltd",
+        "buyer_gstin": "27QWRCA7310M1ZK",
+        "place_of_supply": "27",
+        "taxable_value": "14920.00",
+        "cgst": "1342.80",
+        "sgst": "1342.80",
+        "igst": "0.00"
+      }
+    },
+    {
+      "file": "generated/15-grains-inter.pdf",
+      "split": "dev",
+      "client": "C002",
+      "type": "invoice",
+      "scenario": "happy_inter_state",
+      "pages": 1,
+      "text_layer": true,
+      "expected_status": "ready",
+      "expected_errors": [],
+      "expected_ledger": "5110",
+      "fields": {
+        "vendor_name": "Bharat Wholesale Grains",
+        "vendor_gstin": "23QBWFG7451A1ZX",
+        "invoice_number": "BWG/2627/1302",
+        "invoice_date": "2026-10-09",
+        "total": "24623.00",
+        "round_off": "0.50",
+        "line_items": [
+          {
+            "description": "Basmati rice 25 kg bag",
+            "hsn_sac": "1006",
+            "quantity": "8",
+            "rate": "1900.00",
+            "gst_rate": "5",
+            "taxable_amount": "15200.00"
+          },
+          {
+            "description": "Poha 30 kg bag",
+            "hsn_sac": "1904",
+            "quantity": "5",
+            "rate": "1650.00",
+            "gst_rate": "5",
+            "taxable_amount": "8250.00"
+          }
+        ],
+        "buyer_name": "Annapurna Restaurant Pvt Ltd",
+        "buyer_gstin": "27QWRCA7310M1ZK",
+        "place_of_supply": "27",
+        "taxable_value": "23450.00",
+        "cgst": "0.00",
+        "sgst": "0.00",
+        "igst": "1172.50"
+      }
+    },
+    {
+      "file": "generated/16-dental-inter.pdf",
+      "split": "test",
+      "client": "C003",
+      "type": "invoice",
+      "scenario": "happy_inter_state",
+      "pages": 1,
+      "text_layer": true,
+      "expected_status": "ready",
+      "expected_errors": [],
+      "expected_ledger": "5110",
+      "fields": {
+        "vendor_name": "Medline Dental Depot",
+        "vendor_gstin": "27QMDFD8812C1ZL",
+        "invoice_number": "MDD/26-27/1175",
+        "invoice_date": "2026-10-12",
+        "total": "37642.00",
+        "round_off": "0.00",
+        "line_items": [
+          {
+            "description": "Dental composite kit",
+            "hsn_sac": "3006",
+            "quantity": "4",
+            "rate": "3800.00",
+            "gst_rate": "18",
+            "taxable_amount": "15200.00"
+          },
+          {
+            "description": "Disposable gloves (box of 100)",
+            "hsn_sac": "4015",
+            "quantity": "25",
+            "rate": "320.00",
+            "gst_rate": "18",
+            "taxable_amount": "8000.00"
+          },
+          {
+            "description": "Dental impression material",
+            "hsn_sac": "3407",
+            "quantity": "6",
+            "rate": "1450.00",
+            "gst_rate": "18",
+            "taxable_amount": "8700.00"
+          }
+        ],
+        "buyer_name": "Kaveri Dental Clinic",
+        "buyer_gstin": "29QKDPK5274H1ZH",
+        "place_of_supply": "29",
+        "taxable_value": "31900.00",
+        "cgst": "0.00",
+        "sgst": "0.00",
+        "igst": "5742.00"
+      }
+    },
+    {
+      "file": "generated/17-three-page.pdf",
+      "split": "dev",
+      "client": "C001",
+      "type": "invoice",
+      "scenario": "happy_three_page",
+      "pages": 3,
+      "text_layer": true,
+      "expected_status": "ready",
+      "expected_errors": [],
+      "expected_ledger": "5100",
+      "fields": {
+        "vendor_name": "Mahalaxmi General Stores",
+        "vendor_gstin": "23QMGFS1573E1ZB",
+        "invoice_number": "MGS/26-27/2210",
+        "invoice_date": "2026-10-27",
+        "total": "101069.00",
+        "round_off": "-0.24",
+        "line_items": [
+          {
+            "description": "Sunflower oil 1 L pouch - Brand A",
+            "hsn_sac": "1512",
+            "quantity": "12",
+            "rate": "149.00",
+            "gst_rate": "5",
+            "taxable_amount": "1788.00"
+          },
+          {
+            "description": "Toor dal 1 kg - Brand A",
+            "hsn_sac": "0713",
+            "quantity": "8",
+            "rate": "130.00",
+            "gst_rate": "5",
+            "taxable_amount": "1040.00"
+          },
+          {
+            "description": "Moong dal 1 kg - Brand A",
+            "hsn_sac": "0713",
+            "quantity": "6",
+            "rate": "120.00",
+            "gst_rate": "5",
+            "taxable_amount": "720.00"
+          },
+          {
+            "description": "Chana dal 1 kg - Brand A",
+            "hsn_sac": "0713",
+            "quantity": "18",
+            "rate": "96.00",
+            "gst_rate": "5",
+            "taxable_amount": "1728.00"
+          },
+          {
+            "description": "Sugar 1 kg - Brand A",
+            "hsn_sac": "1701",
+            "quantity": "18",
+            "rate": "50.00",
+            "gst_rate": "5",
+            "taxable_amount": "900.00"
+          },
+          {
+            "description": "Poha 1 kg - Brand A",
+            "hsn_sac": "1904",
+            "quantity": "4",
+            "rate": "60.00",
+            "gst_rate": "5",
+            "taxable_amount": "240.00"
+          },
+          {
+            "description": "Rava 1 kg - Brand A",
+            "hsn_sac": "1103",
+            "quantity": "6",
+            "rate": "52.00",
+            "gst_rate": "5",
+            "taxable_amount": "312.00"
+          },
+          {
+            "description": "Besan 1 kg - Brand A",
+            "hsn_sac": "1106",
+            "quantity": "18",
+            "rate": "98.00",
+            "gst_rate": "5",
+            "taxable_amount": "1764.00"
+          },
+          {
+            "description": "Tea 500 g - Brand A",
+            "hsn_sac": "0902",
+            "quantity": "8",
+            "rate": "247.00",
+            "gst_rate": "5",
+            "taxable_amount": "1976.00"
+          },
+          {
+            "description": "Coffee 200 g jar - Brand A",
+            "hsn_sac": "2101",
+            "quantity": "8",
+            "rate": "314.00",
+            "gst_rate": "5",
+            "taxable_amount": "2512.00"
+          },
+          {
+            "description": "Turmeric powder 200 g - Brand A",
+            "hsn_sac": "0910",
+            "quantity": "18",
+            "rate": "58.00",
+            "gst_rate": "5",
+            "taxable_amount": "1044.00"
+          },
+          {
+            "description": "Red chilli powder 200 g - Brand A",
+            "hsn_sac": "0904",
+            "quantity": "12",
+            "rate": "72.00",
+            "gst_rate": "5",
+            "taxable_amount": "864.00"
+          },
+          {
+            "description": "Coriander powder 200 g - Brand A",
+            "hsn_sac": "0909",
+            "quantity": "15",
+            "rate": "44.00",
+            "gst_rate": "5",
+            "taxable_amount": "660.00"
+          },
+          {
+            "description": "Cumin seeds 100 g - Brand A",
+            "hsn_sac": "0909",
+            "quantity": "6",
+            "rate": "62.00",
+            "gst_rate": "5",
+            "taxable_amount": "372.00"
+          },
+          {
+            "description": "Mustard seeds 100 g - Brand A",
+            "hsn_sac": "1207",
+            "quantity": "6",
+            "rate": "18.00",
+            "gst_rate": "5",
+            "taxable_amount": "108.00"
+          },
+          {
+            "description": "Iodised salt 1 kg - Brand A",
+            "hsn_sac": "2501",
+            "quantity": "15",
+            "rate": "28.00",
+            "gst_rate": "5",
+            "taxable_amount": "420.00"
+          },
+          {
+            "description": "Rice bran oil 1 L - Brand A",
+            "hsn_sac": "1515",
+            "quantity": "18",
+            "rate": "156.00",
+            "gst_rate": "5",
+            "taxable_amount": "2808.00"
+          },
+          {
+            "description": "Basmati rice 5 kg - Brand A",
+            "hsn_sac": "1006",
+            "quantity": "8",
+            "rate": "560.00",
+            "gst_rate": "5",
+            "taxable_amount": "4480.00"
+          },
+          {
+            "description": "Wheat atta 10 kg - Brand A",
+            "hsn_sac": "1101",
+            "quantity": "4",
+            "rate": "424.00",
+            "gst_rate": "5",
+            "taxable_amount": "1696.00"
+          },
+          {
+            "description": "Biscuits family pack - Brand A",
+            "hsn_sac": "1905",
+            "quantity": "18",
+            "rate": "39.00",
+            "gst_rate": "5",
+            "taxable_amount": "702.00"
+          },
+          {
+            "description": "Instant noodles 12-pack - Brand A",
+            "hsn_sac": "1902",
+            "quantity": "8",
+            "rate": "168.00",
+            "gst_rate": "5",
+            "taxable_amount": "1344.00"
+          },
+          {
+            "description": "Bath soap 4-pack - Brand A",
+            "hsn_sac": "3401",
+            "quantity": "4",
+            "rate": "114.00",
+            "gst_rate": "18",
+            "taxable_amount": "456.00"
+          },
+          {
+            "description": "Detergent powder 1 kg - Brand A",
+            "hsn_sac": "3402",
+            "quantity": "12",
+            "rate": "102.00",
+            "gst_rate": "18",
+            "taxable_amount": "1224.00"
+          },
+          {
+            "description": "Dishwash bar 3-pack - Brand A",
+            "hsn_sac": "3402",
+            "quantity": "15",
+            "rate": "49.00",
+            "gst_rate": "18",
+            "taxable_amount": "735.00"
+          },
+          {
+            "description": "Toothpaste 150 g - Brand A",
+            "hsn_sac": "3306",
+            "quantity": "18",
+            "rate": "92.00",
+            "gst_rate": "18",
+            "taxable_amount": "1656.00"
+          },
+          {
+            "description": "Shampoo 340 ml - Brand A",
+            "hsn_sac": "3305",
+            "quantity": "15",
+            "rate": "201.00",
+            "gst_rate": "18",
+            "taxable_amount": "3015.00"
+          },
+          {
+            "description": "Hair oil 300 ml - Brand A",
+            "hsn_sac": "3305",
+            "quantity": "4",
+            "rate": "147.00",
+            "gst_rate": "18",
+            "taxable_amount": "588.00"
+          },
+          {
+            "description": "Floor cleaner 1 L - Brand A",
+            "hsn_sac": "3402",
+            "quantity": "8",
+            "rate": "167.00",
+            "gst_rate": "18",
+            "taxable_amount": "1336.00"
+          },
+          {
+            "description": "Mosquito coil 10-pack - Brand A",
+            "hsn_sac": "3808",
+            "quantity": "4",
+            "rate": "42.00",
+            "gst_rate": "18",
+            "taxable_amount": "168.00"
+          },
+          {
+            "description": "Matchbox carton (10) - Brand A",
+            "hsn_sac": "3605",
+            "quantity": "8",
+            "rate": "24.00",
+            "gst_rate": "18",
+            "taxable_amount": "192.00"
+          },
+          {
+            "description": "Agarbatti 100 sticks - Brand A",
+            "hsn_sac": "3307",
+            "quantity": "12",
+            "rate": "55.00",
+            "gst_rate": "5",
+            "taxable_amount": "660.00"
+          },
+          {
+            "description": "Tomato ketchup 1 kg - Brand A",
+            "hsn_sac": "2103",
+            "quantity": "15",
+            "rate": "137.00",
+            "gst_rate": "5",
+            "taxable_amount": "2055.00"
+          },
+          {
+            "description": "Pickle 500 g - Brand A",
+            "hsn_sac": "2001",
+            "quantity": "12",
+            "rate": "110.00",
+            "gst_rate": "5",
+            "taxable_amount": "1320.00"
+          },
+          {
+            "description": "Papad 200 g - Brand A",
+            "hsn_sac": "1905",
+            "quantity": "4",
+            "rate": "48.00",
+            "gst_rate": "5",
+            "taxable_amount": "192.00"
+          },
+          {
+            "description": "Sunflower oil 1 L pouch - Brand B",
+            "hsn_sac": "1512",
+            "quantity": "6",
+            "rate": "152.00",
+            "gst_rate": "5",
+            "taxable_amount": "912.00"
+          },
+          {
+            "description": "Toor dal 1 kg - Brand B",
+            "hsn_sac": "0713",
+            "quantity": "15",
+            "rate": "131.00",
+            "gst_rate": "5",
+            "taxable_amount": "1965.00"
+          },
+          {
+            "description": "Moong dal 1 kg - Brand B",
+            "hsn_sac": "0713",
+            "quantity": "4",
+            "rate": "123.00",
+            "gst_rate": "5",
+            "taxable_amount": "492.00"
+          },
+          {
+            "description": "Chana dal 1 kg - Brand B",
+            "hsn_sac": "0713",
+            "quantity": "4",
+            "rate": "97.00",
+            "gst_rate": "5",
+            "taxable_amount": "388.00"
+          },
+          {
+            "description": "Sugar 1 kg - Brand B",
+            "hsn_sac": "1701",
+            "quantity": "6",
+            "rate": "51.00",
+            "gst_rate": "5",
+            "taxable_amount": "306.00"
+          },
+          {
+            "description": "Poha 1 kg - Brand B",
+            "hsn_sac": "1904",
+            "quantity": "15",
+            "rate": "65.00",
+            "gst_rate": "5",
+            "taxable_amount": "975.00"
+          },
+          {
+            "description": "Rava 1 kg - Brand B",
+            "hsn_sac": "1103",
+            "quantity": "15",
+            "rate": "59.00",
+            "gst_rate": "5",
+            "taxable_amount": "885.00"
+          },
+          {
+            "description": "Besan 1 kg - Brand B",
+            "hsn_sac": "1106",
+            "quantity": "6",
+            "rate": "103.00",
+            "gst_rate": "5",
+            "taxable_amount": "618.00"
+          },
+          {
+            "description": "Tea 500 g - Brand B",
+            "hsn_sac": "0902",
+            "quantity": "18",
+            "rate": "250.00",
+            "gst_rate": "5",
+            "taxable_amount": "4500.00"
+          },
+          {
+            "description": "Coffee 200 g jar - Brand B",
+            "hsn_sac": "2101",
+            "quantity": "8",
+            "rate": "315.00",
+            "gst_rate": "5",
+            "taxable_amount": "2520.00"
+          },
+          {
+            "description": "Turmeric powder 200 g - Brand B",
+            "hsn_sac": "0910",
+            "quantity": "6",
+            "rate": "59.00",
+            "gst_rate": "5",
+            "taxable_amount": "354.00"
+          },
+          {
+            "description": "Red chilli powder 200 g - Brand B",
+            "hsn_sac": "0904",
+            "quantity": "4",
+            "rate": "73.00",
+            "gst_rate": "5",
+            "taxable_amount": "292.00"
+          },
+          {
+            "description": "Coriander powder 200 g - Brand B",
+            "hsn_sac": "0909",
+            "quantity": "15",
+            "rate": "51.00",
+            "gst_rate": "5",
+            "taxable_amount": "765.00"
+          },
+          {
+            "description": "Cumin seeds 100 g - Brand B",
+            "hsn_sac": "0909",
+            "quantity": "8",
+            "rate": "67.00",
+            "gst_rate": "5",
+            "taxable_amount": "536.00"
+          },
+          {
+            "description": "Mustard seeds 100 g - Brand B",
+            "hsn_sac": "1207",
+            "quantity": "4",
+            "rate": "21.00",
+            "gst_rate": "5",
+            "taxable_amount": "84.00"
+          },
+          {
+            "description": "Iodised salt 1 kg - Brand B",
+            "hsn_sac": "2501",
+            "quantity": "4",
+            "rate": "29.00",
+            "gst_rate": "5",
+            "taxable_amount": "116.00"
+          },
+          {
+            "description": "Rice bran oil 1 L - Brand B",
+            "hsn_sac": "1515",
+            "quantity": "18",
+            "rate": "157.00",
+            "gst_rate": "5",
+            "taxable_amount": "2826.00"
+          },
+          {
+            "description": "Basmati rice 5 kg - Brand B",
+            "hsn_sac": "1006",
+            "quantity": "12",
+            "rate": "565.00",
+            "gst_rate": "5",
+            "taxable_amount": "6780.00"
+          },
+          {
+            "description": "Wheat atta 10 kg - Brand B",
+            "hsn_sac": "1101",
+            "quantity": "4",
+            "rate": "427.00",
+            "gst_rate": "5",
+            "taxable_amount": "1708.00"
+          },
+          {
+            "description": "Biscuits family pack - Brand B",
+            "hsn_sac": "1905",
+            "quantity": "6",
+            "rate": "42.00",
+            "gst_rate": "5",
+            "taxable_amount": "252.00"
+          },
+          {
+            "description": "Instant noodles 12-pack - Brand B",
+            "hsn_sac": "1902",
+            "quantity": "8",
+            "rate": "173.00",
+            "gst_rate": "5",
+            "taxable_amount": "1384.00"
+          },
+          {
+            "description": "Bath soap 4-pack - Brand B",
+            "hsn_sac": "3401",
+            "quantity": "18",
+            "rate": "115.00",
+            "gst_rate": "18",
+            "taxable_amount": "2070.00"
+          },
+          {
+            "description": "Detergent powder 1 kg - Brand B",
+            "hsn_sac": "3402",
+            "quantity": "12",
+            "rate": "105.00",
+            "gst_rate": "18",
+            "taxable_amount": "1260.00"
+          },
+          {
+            "description": "Dishwash bar 3-pack - Brand B",
+            "hsn_sac": "3402",
+            "quantity": "15",
+            "rate": "48.00",
+            "gst_rate": "18",
+            "taxable_amount": "720.00"
+          },
+          {
+            "description": "Toothpaste 150 g - Brand B",
+            "hsn_sac": "3306",
+            "quantity": "15",
+            "rate": "99.00",
+            "gst_rate": "18",
+            "taxable_amount": "1485.00"
+          },
+          {
+            "description": "Shampoo 340 ml - Brand B",
+            "hsn_sac": "3305",
+            "quantity": "6",
+            "rate": "206.00",
+            "gst_rate": "18",
+            "taxable_amount": "1236.00"
+          },
+          {
+            "description": "Hair oil 300 ml - Brand B",
+            "hsn_sac": "3305",
+            "quantity": "12",
+            "rate": "150.00",
+            "gst_rate": "18",
+            "taxable_amount": "1800.00"
+          },
+          {
+            "description": "Floor cleaner 1 L - Brand B",
+            "hsn_sac": "3402",
+            "quantity": "15",
+            "rate": "172.00",
+            "gst_rate": "18",
+            "taxable_amount": "2580.00"
+          },
+          {
+            "description": "Mosquito coil 10-pack - Brand B",
+            "hsn_sac": "3808",
+            "quantity": "6",
+            "rate": "43.00",
+            "gst_rate": "18",
+            "taxable_amount": "258.00"
+          },
+          {
+            "description": "Matchbox carton (10) - Brand B",
+            "hsn_sac": "3605",
+            "quantity": "8",
+            "rate": "23.00",
+            "gst_rate": "18",
+            "taxable_amount": "184.00"
+          },
+          {
+            "description": "Agarbatti 100 sticks - Brand B",
+            "hsn_sac": "3307",
+            "quantity": "18",
+            "rate": "58.00",
+            "gst_rate": "5",
+            "taxable_amount": "1044.00"
+          },
+          {
+            "description": "Tomato ketchup 1 kg - Brand B",
+            "hsn_sac": "2103",
+            "quantity": "6",
+            "rate": "138.00",
+            "gst_rate": "5",
+            "taxable_amount": "828.00"
+          },
+          {
+            "description": "Pickle 500 g - Brand B",
+            "hsn_sac": "2001",
+            "quantity": "15",
+            "rate": "113.00",
+            "gst_rate": "5",
+            "taxable_amount": "1695.00"
+          },
+          {
+            "description": "Papad 200 g - Brand B",
+            "hsn_sac": "1905",
+            "quantity": "8",
+            "rate": "53.00",
+            "gst_rate": "5",
+            "taxable_amount": "424.00"
+          },
+          {
+            "description": "Sunflower oil 1 L pouch - Bulk pack",
+            "hsn_sac": "1512",
+            "quantity": "4",
+            "rate": "153.00",
+            "gst_rate": "5",
+            "taxable_amount": "612.00"
+          },
+          {
+            "description": "Toor dal 1 kg - Bulk pack",
+            "hsn_sac": "0713",
+            "quantity": "12",
+            "rate": "134.00",
+            "gst_rate": "5",
+            "taxable_amount": "1608.00"
+          },
+          {
+            "description": "Moong dal 1 kg - Bulk pack",
+            "hsn_sac": "0713",
+            "quantity": "18",
+            "rate": "124.00",
+            "gst_rate": "5",
+            "taxable_amount": "2232.00"
+          },
+          {
+            "description": "Chana dal 1 kg - Bulk pack",
+            "hsn_sac": "0713",
+            "quantity": "8",
+            "rate": "100.00",
+            "gst_rate": "5",
+            "taxable_amount": "800.00"
+          },
+          {
+            "description": "Sugar 1 kg - Bulk pack",
+            "hsn_sac": "1701",
+            "quantity": "12",
+            "rate": "56.00",
+            "gst_rate": "5",
+            "taxable_amount": "672.00"
+          },
+          {
+            "description": "Poha 1 kg - Bulk pack",
+            "hsn_sac": "1904",
+            "quantity": "4",
+            "rate": "66.00",
+            "gst_rate": "5",
+            "taxable_amount": "264.00"
+          },
+          {
+            "description": "Rava 1 kg - Bulk pack",
+            "hsn_sac": "1103",
+            "quantity": "4",
+            "rate": "62.00",
+            "gst_rate": "5",
+            "taxable_amount": "248.00"
+          },
+          {
+            "description": "Besan 1 kg - Bulk pack",
+            "hsn_sac": "1106",
+            "quantity": "18",
+            "rate": "106.00",
+            "gst_rate": "5",
+            "taxable_amount": "1908.00"
+          }
+        ],
+        "buyer_name": "Shree Ganesh Traders",
+        "buyer_gstin": "23QXGPS4821K1ZU",
+        "place_of_supply": "23",
+        "taxable_value": "93661.00",
+        "cgst": "3704.12",
+        "sgst": "3704.12",
+        "igst": "0.00"
+      }
+    },
+    {
+      "file": "generated/18-beverages-mixed-rates.pdf",
+      "split": "test",
+      "client": "C001",
+      "type": "invoice",
+      "scenario": "happy_mixed_rates",
+      "pages": 1,
+      "text_layer": true,
+      "expected_status": "ready",
+      "expected_errors": [],
+      "expected_ledger": "5100",
+      "fields": {
+        "vendor_name": "Sheetal Beverages Agency",
+        "vendor_gstin": "23QSBFA6240R1ZX",
+        "invoice_number": "SBA/26-27/0318",
+        "invoice_date": "2026-10-20",
+        "total": "46221.00",
+        "round_off": "0.00",
+        "line_items": [
+          {
+            "description": "Aerated soft drink 750 ml (crate of 24)",
+            "hsn_sac": "2202",
+            "quantity": "30",
+            "rate": "540.00",
+            "gst_rate": "40",
+            "taxable_amount": "16200.00"
+          },
+          {
+            "description": "Packaged drinking water 20 L jar",
+            "hsn_sac": "2201",
+            "quantity": "60",
+            "rate": "70.00",
+            "gst_rate": "18",
+            "taxable_amount": "4200.00"
+          },
+          {
+            "description": "Salted namkeen 400 g (carton of 20)",
+            "hsn_sac": "2106",
+            "quantity": "15",
+            "rate": "1180.00",
+            "gst_rate": "5",
+            "taxable_amount": "17700.00"
+          }
+        ],
+        "buyer_name": "Shree Ganesh Traders",
+        "buyer_gstin": "23QXGPS4821K1ZU",
+        "place_of_supply": "23",
+        "taxable_value": "38100.00",
+        "cgst": "4060.50",
+        "sgst": "4060.50",
+        "igst": "0.00"
+      }
+    },
+    {
+      "file": "generated/19-blurred-scan.png",
+      "split": "dev",
+      "client": "C001",
+      "type": "invoice",
+      "scenario": "degraded_blur",
+      "pages": 1,
+      "text_layer": false,
+      "expected_status": "ready",
+      "expected_errors": [],
+      "expected_ledger": "6150",
+      "fields": {
+        "vendor_name": "Sai Stationery Mart",
+        "vendor_gstin": "23QSSPM6142B1ZF",
+        "invoice_number": "SSM/26-27/0518",
+        "invoice_date": "2026-10-16",
+        "total": "10384.00",
+        "round_off": "0.00",
+        "line_items": [
+          {
+            "description": "Printer toner cartridge",
+            "hsn_sac": "8443",
+            "quantity": "3",
+            "rate": "2650.00",
+            "gst_rate": "18",
+            "taxable_amount": "7950.00"
+          },
+          {
+            "description": "Spiral binding sheets",
+            "hsn_sac": "4820",
+            "quantity": "10",
+            "rate": "85.00",
+            "gst_rate": "18",
+            "taxable_amount": "850.00"
+          }
+        ],
+        "buyer_name": "Shree Ganesh Traders",
+        "buyer_gstin": "23QXGPS4821K1ZU",
+        "place_of_supply": "23",
+        "taxable_value": "8800.00",
+        "cgst": "792.00",
+        "sgst": "792.00",
+        "igst": "0.00"
+      }
+    },
+    {
+      "file": "generated/20-skewed-scan.png",
+      "split": "dev",
+      "client": "C002",
+      "type": "invoice",
+      "scenario": "degraded_skew",
+      "pages": 1,
+      "text_layer": false,
+      "expected_status": "ready",
+      "expected_errors": [],
+      "expected_ledger": "6140",
+      "fields": {
+        "vendor_name": "Pune Power & Cooling Services",
+        "vendor_gstin": "27QPPCS7096L1Z1",
+        "invoice_number": "PPC/2026/0412",
+        "invoice_date": "2026-09-30",
+        "total": "5310.00",
+        "round_off": "0.00",
+        "line_items": [
+          {
+            "description": "Split AC deep cleaning",
+            "hsn_sac": "998719",
+            "quantity": "4",
+            "rate": "900.00",
+            "gst_rate": "18",
+            "taxable_amount": "3600.00"
+          },
+          {
+            "description": "Ceiling fan repair",
+            "hsn_sac": "998719",
+            "quantity": "2",
+            "rate": "450.00",
+            "gst_rate": "18",
+            "taxable_amount": "900.00"
+          }
+        ],
+        "buyer_name": "Annapurna Restaurant Pvt Ltd",
+        "buyer_gstin": "27QWRCA7310M1ZK",
+        "place_of_supply": "27",
+        "taxable_value": "4500.00",
+        "cgst": "405.00",
+        "sgst": "405.00",
+        "igst": "0.00"
+      }
+    },
+    {
+      "file": "generated/21-low-resolution-scan.png",
+      "split": "test",
+      "client": "C001",
+      "type": "invoice",
+      "scenario": "degraded_low_resolution",
+      "pages": 1,
+      "text_layer": false,
+      "expected_status": "ready",
+      "expected_errors": [],
+      "expected_ledger": "6120",
+      "fields": {
+        "vendor_name": "Malwa Mobile Connect Pvt Ltd",
+        "vendor_gstin": "23QMMCP2285K1ZY",
+        "invoice_number": "MMC/OCT26/8841",
+        "invoice_date": "2026-10-19",
+        "total": "4708.00",
+        "round_off": "-0.20",
+        "line_items": [
+          {
+            "description": "Postpaid business plans, Oct 2026",
+            "hsn_sac": "998431",
+            "quantity": "5",
+            "rate": "599.00",
+            "gst_rate": "18",
+            "taxable_amount": "2995.00"
+          },
+          {
+            "description": "Data add-on pack, Oct 2026",
+            "hsn_sac": "998431",
+            "quantity": "5",
+            "rate": "199.00",
+            "gst_rate": "18",
+            "taxable_amount": "995.00"
+          }
+        ],
+        "buyer_name": "Shree Ganesh Traders",
+        "buyer_gstin": "23QXGPS4821K1ZU",
+        "place_of_supply": "23",
+        "taxable_value": "3990.00",
+        "cgst": "359.10",
+        "sgst": "359.10",
+        "igst": "0.00"
+      }
+    },
+    {
+      "file": "generated/22-phone-photo-invoice.jpg",
+      "split": "test",
+      "client": "C003",
+      "type": "invoice",
+      "scenario": "degraded_phone_photo",
+      "pages": 1,
+      "text_layer": false,
+      "expected_status": "ready",
+      "expected_errors": [],
+      "expected_ledger": "6160",
+      "fields": {
+        "vendor_name": "Sahyadri Consultants LLP",
+        "vendor_gstin": "27QSCFC4718D1ZC",
+        "invoice_number": "SC-LLP/2026/061",
+        "invoice_date": "2026-10-21",
+        "total": "18290.00",
+        "round_off": "0.00",
+        "line_items": [
+          {
+            "description": "GST return filing, Sep 2026",
+            "hsn_sac": "998213",
+            "quantity": "1",
+            "rate": "6500.00",
+            "gst_rate": "18",
+            "taxable_amount": "6500.00"
+          },
+          {
+            "description": "Bookkeeping, Sep 2026",
+            "hsn_sac": "998222",
+            "quantity": "1",
+            "rate": "9000.00",
+            "gst_rate": "18",
+            "taxable_amount": "9000.00"
+          }
+        ],
+        "buyer_name": "Kaveri Dental Clinic",
+        "buyer_gstin": "29QKDPK5274H1ZH",
+        "place_of_supply": "29",
+        "taxable_value": "15500.00",
+        "cgst": "0.00",
+        "sgst": "0.00",
+        "igst": "2790.00"
+      }
+    },
+    {
+      "file": "generated/23-missing-vendor-gstin.pdf",
+      "split": "dev",
+      "client": "C001",
+      "type": "invoice",
+      "scenario": "missing_vendor_gstin",
+      "pages": 1,
+      "text_layer": true,
+      "expected_status": "needs_review",
+      "expected_errors": [
+        "missing_vendor_gstin"
+      ],
+      "expected_ledger": "6140",
+      "fields": {
+        "vendor_name": "Gupta Water Solutions",
+        "vendor_gstin": null,
+        "invoice_number": "GWS/0087",
+        "invoice_date": "2026-10-18",
+        "total": "9440.00",
+        "round_off": "0.00",
+        "line_items": [
+          {
+            "description": "Water purifier annual maintenance",
+            "hsn_sac": "998719",
+            "quantity": "2",
+            "rate": "2200.00",
+            "gst_rate": "18",
+            "taxable_amount": "4400.00"
+          },
+          {
+            "description": "RO membrane replacement",
+            "hsn_sac": "998719",
+            "quantity": "2",
+            "rate": "1800.00",
+            "gst_rate": "18",
+            "taxable_amount": "3600.00"
+          }
+        ],
+        "buyer_name": "Shree Ganesh Traders",
+        "buyer_gstin": "23QXGPS4821K1ZU",
+        "place_of_supply": "23",
+        "taxable_value": "8000.00",
+        "cgst": "720.00",
+        "sgst": "720.00",
+        "igst": "0.00"
+      }
+    },
+    {
+      "file": "generated/24-duplicate-invoice.pdf",
+      "split": "test",
+      "client": "C001",
+      "type": "invoice",
+      "scenario": "duplicate_invoice",
+      "pages": 1,
+      "text_layer": true,
+      "expected_status": "ready",
+      "expected_errors": [],
+      "expected_ledger": "6150",
+      "fields": {
+        "vendor_name": "Sai Stationery Mart",
+        "vendor_gstin": "23QSSPM6142B1ZF",
+        "invoice_number": "SSM/26-27/0412",
+        "invoice_date": "2026-08-14",
+        "total": "9293.00",
+        "round_off": "0.50",
+        "line_items": [
+          {
+            "description": "A4 copier paper 75 GSM",
+            "hsn_sac": "4802",
+            "quantity": "20",
+            "rate": "245.00",
+            "gst_rate": "18",
+            "taxable_amount": "4900.00"
+          },
+          {
+            "description": "Ball pens (box of 10)",
+            "hsn_sac": "9608",
+            "quantity": "15",
+            "rate": "90.00",
+            "gst_rate": "18",
+            "taxable_amount": "1350.00"
+          },
+          {
+            "description": "Box files",
+            "hsn_sac": "4820",
+            "quantity": "25",
+            "rate": "65.00",
+            "gst_rate": "18",
+            "taxable_amount": "1625.00"
+          }
+        ],
+        "buyer_name": "Shree Ganesh Traders",
+        "buyer_gstin": "23QXGPS4821K1ZU",
+        "place_of_supply": "23",
+        "taxable_value": "7875.00",
+        "cgst": "708.75",
+        "sgst": "708.75",
+        "igst": "0.00"
+      },
+      "duplicate_of": "generated/01-intra-classic.pdf",
+      "expected_when_original_exists": {
+        "expected_status": "needs_review",
+        "expected_errors": [
+          "duplicate_invoice"
+        ]
+      }
+    },
+    {
+      "file": "generated/25-ambiguous-date.pdf",
+      "split": "dev",
+      "client": "C001",
+      "type": "invoice",
+      "scenario": "ambiguous_date",
+      "pages": 1,
+      "text_layer": true,
+      "expected_status": "needs_review",
+      "expected_errors": [
+        "ambiguous_date"
+      ],
+      "expected_ledger": "6140",
+      "fields": {
+        "vendor_name": "Om Sai Hardware",
+        "vendor_gstin": "23QOSFH4417B1ZF",
+        "invoice_number": "OSH/26-27/0145",
+        "invoice_date": "2026-05-04",
+        "total": "33276.00",
+        "round_off": "0.00",
+        "line_items": [
+          {
+            "description": "Wall paint 20 L bucket",
+            "hsn_sac": "3208",
+            "quantity": "6",
+            "rate": "4300.00",
+            "gst_rate": "18",
+            "taxable_amount": "25800.00"
+          },
+          {
+            "description": "Paint brushes set",
+            "hsn_sac": "9603",
+            "quantity": "10",
+            "rate": "240.00",
+            "gst_rate": "18",
+            "taxable_amount": "2400.00"
+          }
+        ],
+        "buyer_name": "Shree Ganesh Traders",
+        "buyer_gstin": "23QXGPS4821K1ZU",
+        "place_of_supply": "23",
+        "taxable_value": "28200.00",
+        "cgst": "2538.00",
+        "sgst": "2538.00",
+        "igst": "0.00"
+      }
+    },
+    {
+      "file": "generated/26-invalid-buyer-gstin.pdf",
+      "split": "dev",
+      "client": "C001",
+      "type": "invoice",
+      "scenario": "invalid_buyer_gstin",
+      "pages": 1,
+      "text_layer": true,
+      "expected_status": "needs_review",
+      "expected_errors": [
+        "invalid_buyer_gstin"
+      ],
+      "expected_ledger": "1500",
+      "fields": {
+        "vendor_name": "TechNova Systems Pvt Ltd",
+        "vendor_gstin": "27QTNCS8025R1ZW",
+        "invoice_number": "TN/MH/26-27/0132",
+        "invoice_date": "2026-10-13",
+        "total": "54516.00",
+        "round_off": "0.00",
+        "line_items": [
+          {
+            "description": "CCTV camera kit 4-channel",
+            "hsn_sac": "8525",
+            "quantity": "2",
+            "rate": "18500.00",
+            "gst_rate": "18",
+            "taxable_amount": "37000.00"
+          },
+          {
+            "description": "Network video recorder 1 TB",
+            "hsn_sac": "8521",
+            "quantity": "1",
+            "rate": "9200.00",
+            "gst_rate": "18",
+            "taxable_amount": "9200.00"
+          }
+        ],
+        "buyer_name": "Shree Ganesh Traders",
+        "buyer_gstin": "23QXGPS4821K1Z1",
+        "place_of_supply": "23",
+        "taxable_value": "46200.00",
+        "cgst": "0.00",
+        "sgst": "0.00",
+        "igst": "8316.00"
+      }
+    },
+    {
+      "file": "generated/27-stationery-receipt.jpg",
+      "split": "dev",
+      "client": "C001",
+      "type": "receipt",
+      "scenario": "happy_retail_receipt",
+      "pages": 1,
+      "text_layer": false,
+      "expected_status": "ready",
+      "expected_errors": [],
+      "expected_ledger": "6150",
+      "fields": {
+        "vendor_name": "Bharat Book Depot",
+        "vendor_gstin": "23QBBPD3620A1ZD",
+        "invoice_number": "BBD-20417",
+        "invoice_date": "2026-10-23",
+        "total": "1180.00",
+        "round_off": "0.00",
+        "line_items": [
+          {
+            "description": "Gel pens (pack of 10)",
+            "hsn_sac": "9608",
+            "quantity": "3",
+            "rate": "120.00",
+            "gst_rate": "18",
+            "taxable_amount": "360.00"
+          },
+          {
+            "description": "Stapler with pins",
+            "hsn_sac": "8472",
+            "quantity": "2",
+            "rate": "185.00",
+            "gst_rate": "18",
+            "taxable_amount": "370.00"
+          },
+          {
+            "description": "Sticky notes 3x3",
+            "hsn_sac": "4820",
+            "quantity": "6",
+            "rate": "45.00",
+            "gst_rate": "18",
+            "taxable_amount": "270.00"
+          }
+        ],
+        "taxable_value": "1000.00",
+        "cgst": "90.00",
+        "sgst": "90.00",
+        "igst": "0.00"
+      }
+    },
+    {
+      "file": "generated/28-cafe-receipt.jpg",
+      "split": "test",
+      "client": "C002",
+      "type": "receipt",
+      "scenario": "happy_restaurant_receipt",
+      "pages": 1,
+      "text_layer": false,
+      "expected_status": "ready",
+      "expected_errors": [],
+      "expected_ledger": "6180",
+      "fields": {
+        "vendor_name": "Chai Tapri Cafe",
+        "vendor_gstin": "27QCTFC8154N1Z1",
+        "invoice_number": "CT/0912",
+        "invoice_date": "2026-10-17",
+        "total": "536.00",
+        "round_off": "0.50",
+        "line_items": [
+          {
+            "description": "Masala chai",
+            "hsn_sac": "996331",
+            "quantity": "6",
+            "rate": "25.00",
+            "gst_rate": "5",
+            "taxable_amount": "150.00"
+          },
+          {
+            "description": "Vada pav",
+            "hsn_sac": "996331",
+            "quantity": "6",
+            "rate": "30.00",
+            "gst_rate": "5",
+            "taxable_amount": "180.00"
+          },
+          {
+            "description": "Bun maska",
+            "hsn_sac": "996331",
+            "quantity": "4",
+            "rate": "45.00",
+            "gst_rate": "5",
+            "taxable_amount": "180.00"
+          }
+        ],
+        "taxable_value": "510.00",
+        "cgst": "12.75",
+        "sgst": "12.75",
+        "igst": "0.00"
+      }
+    },
+    {
+      "file": "generated/29-petrol-receipt.jpg",
+      "split": "dev",
+      "client": "C002",
+      "type": "receipt",
+      "scenario": "happy_fuel_receipt",
+      "pages": 1,
+      "text_layer": false,
+      "expected_status": "ready",
+      "expected_errors": [],
+      "expected_ledger": "6130",
+      "fields": {
+        "vendor_name": "Sahyadri Petroleum",
+        "vendor_gstin": "27QSPCP5509J1ZG",
+        "invoice_number": "SP-77302",
+        "invoice_date": "2026-10-28",
+        "total": "2975.00",
+        "round_off": "-0.47",
+        "line_items": [
+          {
+            "description": "Petrol",
+            "hsn_sac": "2710",
+            "quantity": "28.4",
+            "rate": "104.77",
+            "gst_rate": "0",
+            "taxable_amount": "2975.47"
+          }
+        ]
+      }
+    },
+    {
+      "file": "generated/30-gst-inclusive-receipt.jpg",
+      "split": "dev",
+      "client": "C001",
+      "type": "receipt",
+      "scenario": "receipt_gst_inclusive",
+      "pages": 1,
+      "text_layer": false,
+      "expected_status": "ready",
+      "expected_errors": [],
+      "expected_ledger": "6180",
+      "fields": {
+        "vendor_name": "Anand Sweets & Namkeen",
+        "vendor_gstin": "23QANFS2748G1ZM",
+        "invoice_number": "ASN-5521",
+        "invoice_date": "2026-10-25",
+        "total": "850.00",
+        "round_off": "0.00",
+        "line_items": [
+          {
+            "description": "Kaju katli 500 g",
+            "hsn_sac": "1704",
+            "quantity": "1",
+            "rate": "640.00",
+            "gst_rate": "5",
+            "taxable_amount": "640.00"
+          },
+          {
+            "description": "Samosa",
+            "hsn_sac": "1905",
+            "quantity": "6",
+            "rate": "15.00",
+            "gst_rate": "5",
+            "taxable_amount": "90.00"
+          },
+          {
+            "description": "Jalebi 250 g",
+            "hsn_sac": "1704",
+            "quantity": "1",
+            "rate": "120.00",
+            "gst_rate": "5",
+            "taxable_amount": "120.00"
+          }
+        ]
+      }
     }
   ]
 }

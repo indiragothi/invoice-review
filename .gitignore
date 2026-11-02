@@ -29,3 +29,6 @@ private/
 # os / editor
 .DS_Store
 Thumbs.db
+
+# evaluation: cached model answers (results-*.md are committed)
+evaluation/cache/

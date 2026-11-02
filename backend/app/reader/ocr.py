@@ -14,6 +14,7 @@ from PIL import Image
 from rapidocr_onnxruntime import RapidOCR
 
 from app.reader.render import to_png_bytes
+from app.reader.rows import assign_rows, estimate_tilt
 from app.reader.schemas import Box, RawWord
 
 WORD_GAP_RATIO = 0.45  # gap wider than this share of a median character width starts a new word
@@ -71,8 +72,16 @@ def _split_line(line_index: int, entry: list[Any]) -> list[RawWord]:
 
 
 def words_from_image(image: Image.Image) -> list[RawWord]:
+    """Words in OCR order, with `line_key` = the visual row (tilt undone, see `rows.py`)."""
     result, _ = _engine()(to_png_bytes(image), return_word_box=True)
+    entries = list(result or [])
     words: list[RawWord] = []
-    for line_index, entry in enumerate(result or []):
+    for line_index, entry in enumerate(entries):
         words.extend(_split_line(line_index, entry))
-    return words
+    tilt, line_height = estimate_tilt([entry[0] for entry in entries])
+    centres = [((w.box[0] + w.box[2]) / 2, (w.box[1] + w.box[3]) / 2) for w in words]
+    rows = assign_rows(centres, tilt, line_height)
+    return [
+        RawWord(w.text, w.box, w.confidence, line_key=row)
+        for w, row in zip(words, rows, strict=True)
+    ]

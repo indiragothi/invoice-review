@@ -17,7 +17,7 @@ import re
 from collections.abc import Iterator, Mapping, Sequence
 from typing import Literal
 
-from app.normalisation.amounts import parse_amount, parse_percent
+from app.normalisation.amounts import parse_amount, parse_percent, parse_quantity
 from app.normalisation.dates import parse_date
 from app.normalisation.states import state_code_from_text
 from app.normalisation.text import normalise_gstin
@@ -42,8 +42,7 @@ def _leaf(path: str) -> str:
 
 def _leading_number(text: str):
     """The number at the start of a quantity: '20 ream' and '20' are the same 20."""
-    match = re.match(r"\s*(\d[\d,]*(?:\.\d+)?|\.\d+)", text)
-    return parse_amount(match.group(1)) if match else None
+    return parse_quantity(text)
 
 
 def _tidy(text: str) -> str:
@@ -135,7 +134,7 @@ def locate_value(document: ReadDocument, value: str) -> list[str] | None:
     if not target:
         return None
     lines: dict[tuple[int, int], list] = {}
-    for word in document.words:
+    for word in sorted(document.words, key=lambda w: (w.page, w.line, w.box[0])):
         lines.setdefault((word.page, word.line), []).append(word)
     for key in sorted(lines):
         for window in _windows(lines[key], target, exact=True):

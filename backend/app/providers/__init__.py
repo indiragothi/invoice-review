@@ -32,7 +32,7 @@ from app.schemas.ledger import LedgerChoice
 from app.schemas.second_reading import SecondReading
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
-EXTRACT_PROMPT = "extract_v2"
+EXTRACT_PROMPT = "extract_v4"
 LEDGER_PROMPT = "ledger_v1"
 EMAIL_PROMPT = "email_v1"
 REVIEW_PROMPT = "review_v1"
@@ -99,7 +99,7 @@ def build_model(settings: Settings) -> Model:
 def format_words(document: ReadDocument) -> str:
     """One text line per document line: `p1 L5 | w21:Invoice w22:No: w23:SSM/26-27/0412`."""
     lines: dict[tuple[int, int], list[str]] = {}
-    for word in document.words:
+    for word in sorted(document.words, key=lambda w: (w.page, w.line, w.box[0])):
         lines.setdefault((word.page, word.line), []).append(f"{word.id}:{word.text}")
     return "\n".join(
         f"p{page} L{line} | {' '.join(tokens)}" for (page, line), tokens in sorted(lines.items())

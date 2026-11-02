@@ -20,7 +20,7 @@ flowchart LR
 | **M2 Ground + validate** | Typed models; grounding; normalisation (Indian dates, amounts); GSTIN; invoice and receipt rules; duplicate key; pytest for these | All rules in policy-rules.md implemented; tests pass offline |
 | **M3 Pipeline + API** | `PipelineContext` and steps; second reading + merge; ledger catalog + suggestion; SQLite model, repository, service, routes; cache by hash; correction-email eligibility + draft; export | `curl` upload → document reaches `ready` / `needs_review` with fields, boxes, issues and a ledger suggestion; `409` on illegal approve |
 | **M4 Review UI** | Welcome → upload (client picker) → processing → review flow; inbox with filters; page overlay with click-to-highlight; edit, ledger, approve, reject, bulk approve; correction-email dialog; delete; export button | Manual walkthrough of the 4 demo documents works end to end |
-| **M5 Evaluation** | Full 36+ corpus with dev / test split; `evaluate_corpus.py`; provider and second-reading experiments; threshold tuning on dev | Results table on the test split in README; safety invariant shows zero violations |
+| **M5 Evaluation** | Corpus of 30 with dev / test split (D15); `evaluate_corpus.py`; second-reading experiments on Gemini (NVIDIA postponed); threshold tuning on dev | Results table on the test split in README; safety invariant shows zero violations |
 | **M6 Ship** | Password gate; security pass; Dockerfile (SPA + API in one image); deploy with sample data; 3-5 min demo video | Live URL, video, and security checklist all done |
 | **M7 Stretch** | Hindi + English, handwritten receipts, GSTR-2B reconciliation, Tally export | Each stretch adds its own samples to the evaluation |
 

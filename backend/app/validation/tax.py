@@ -123,6 +123,21 @@ def receipt_computed_total(
     return base + totals.total + (round_off or ZERO)
 
 
+def receipt_total_problem(
+    items: list[LineItem], totals: TaxTotals, round_off: Decimal | None, total: Decimal
+) -> Decimal | None:
+    """The computed total (lines + tax + round-off) if the printed total matches neither it nor
+    the lines alone, else None. Many receipts print prices that already include GST, with the
+    tax rows shown for information only: then the lines add up to the total without the tax."""
+    computed = receipt_computed_total(items, totals, round_off)
+    if computed is None or not differs(computed, total):
+        return None
+    prices_include_tax = receipt_computed_total(items, TaxTotals(), round_off)
+    if prices_include_tax is not None and not differs(prices_include_tax, total):
+        return None
+    return computed
+
+
 def differs(a: Decimal, b: Decimal, tolerance: Decimal = APP_CONFIG.money_tolerance) -> bool:
     """True if the two amounts differ by more than the tolerance (exactly equal to it is fine)."""
     return abs(a - b) > tolerance

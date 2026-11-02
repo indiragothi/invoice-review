@@ -171,6 +171,9 @@ class Bill:
     printed_total_delta: Decimal = Decimal("0")
     show_tax: bool = True
     receipt_time: str | None = None
+    degrade: str | None = None  # how a scan / photo is damaged (see make_scan / make_photo)
+    tax_inclusive: bool = False  # receipt prices already include GST (no tax added on top)
+    duplicate_of: str | None = None  # slug of the document this one repeats (same invoice)
 
     # ---- derived values
 
@@ -190,7 +193,7 @@ class Bill:
 
     def tax_lines(self) -> list[tuple[str, Decimal, Decimal]]:
         """(label, rate, amount) per tax head and GST rate."""
-        if not self.show_tax:
+        if not self.show_tax or self.tax_inclusive:
             return []
         by_rate: dict[Decimal, Decimal] = {}
         for item in self.items:
@@ -203,6 +206,20 @@ class Bill:
                 half = rate / 2
                 lines.append(("CGST", half, q2(base * half / 100)))
                 lines.append(("SGST", half, q2(base * half / 100)))
+        return lines
+
+    def included_tax_lines(self) -> list[tuple[str, Decimal, Decimal]]:
+        """GST already inside the printed prices (tax-inclusive receipts only)."""
+        if not self.tax_inclusive:
+            return []
+        by_rate: dict[Decimal, Decimal] = {}
+        for item in self.items:
+            by_rate[item.gst_rate] = by_rate.get(item.gst_rate, Decimal("0")) + item.amount
+        lines = []
+        for rate, gross in sorted(by_rate.items()):
+            half = rate / 2
+            part = q2(gross * half / (100 + rate))
+            lines.extend([("CGST", half, part), ("SGST", half, part)])
         return lines
 
     def tax_total(self, head: str) -> Decimal:
@@ -304,6 +321,84 @@ V_RESTAURANT = Party(
     "23",
     make_gstin("23", "QHSFS6629Q"),
 )
+V_FURNITURE = Party(
+    "Shakti Furniture Works",
+    ("45, Pipliyahana Chauraha", "Indore - 452016"),
+    "23",
+    make_gstin("23", "QSWFS6613K"),
+)
+V_PACKAGING = Party(
+    "Kothrud Packaging Supplies",
+    ("Gat 112, Warje Industrial Area", "Pune - 411058"),
+    "27",
+    make_gstin("27", "QKPCS5207M"),
+)
+V_DENTAL = Party(
+    "Medline Dental Depot",
+    ("Shop 9, Grant Road", "Mumbai - 400007"),
+    "27",
+    make_gstin("27", "QMDFD8812C"),
+)
+V_WHOLESALE = Party(
+    "Mahalaxmi General Stores",
+    ("62, Rajwada Wholesale Market", "Indore - 452002"),
+    "23",
+    make_gstin("23", "QMGFS1573E"),
+)
+V_BEVERAGE = Party(
+    "Sheetal Beverages Agency",
+    ("18, Lasudia Mori Road", "Indore - 452010"),
+    "23",
+    make_gstin("23", "QSBFA6240R"),
+)
+V_ELECTRIC = Party(
+    "Pune Power & Cooling Services",
+    ("7, Karve Road", "Pune - 411038"),
+    "27",
+    make_gstin("27", "QPPCS7096L"),
+)
+V_TELECOM = Party(
+    "Malwa Mobile Connect Pvt Ltd",
+    ("2nd Floor, Scheme 54 PU4", "Indore - 452010"),
+    "23",
+    make_gstin("23", "QMMCP2285K"),
+)
+V_HARDWARE = Party(
+    "Om Sai Hardware",
+    ("Shop 3, Jail Road", "Indore - 452007"),
+    "23",
+    make_gstin("23", "QOSFH4417B"),
+)
+V_UNREGISTERED = Party(
+    "Gupta Water Solutions",
+    ("19, Khajrana Main Road", "Indore - 452016"),
+    "23",
+    None,
+)
+V_BOOKS = Party(
+    "Bharat Book Depot",
+    ("5, Mahatma Gandhi Road", "Indore - 452001"),
+    "23",
+    make_gstin("23", "QBBPD3620A"),
+)
+V_CAFE = Party(
+    "Chai Tapri Cafe",
+    ("FC Road", "Pune - 411004"),
+    "27",
+    make_gstin("27", "QCTFC8154N"),
+)
+V_PETROL = Party(
+    "Sahyadri Petroleum",
+    ("Pune-Satara Road, Katraj", "Pune - 411046"),
+    "27",
+    make_gstin("27", "QSPCP5509J"),
+)
+V_SWEETS = Party(
+    "Anand Sweets & Namkeen",
+    ("Sarafa Bazaar", "Indore - 452002"),
+    "23",
+    make_gstin("23", "QANFS2748G"),
+)
 OTHER_BUYER = Party(
     "Ganesh Trading Company",
     ("8, Jawahar Marg", "Indore - 452002"),
@@ -321,48 +416,66 @@ def d(value: str) -> Decimal:
     return Decimal(value)
 
 
+KIRANA_GOODS = [
+    ("Sunflower oil 1 L pouch", "1512", "5", "pcs", "145"),
+    ("Toor dal 1 kg", "0713", "5", "kg", "128"),
+    ("Moong dal 1 kg", "0713", "5", "kg", "118"),
+    ("Chana dal 1 kg", "0713", "5", "kg", "92"),
+    ("Sugar 1 kg", "1701", "5", "kg", "46"),
+    ("Poha 1 kg", "1904", "5", "kg", "58"),
+    ("Rava 1 kg", "1103", "5", "kg", "52"),
+    ("Besan 1 kg", "1106", "5", "kg", "96"),
+    ("Tea 500 g", "0902", "5", "pcs", "245"),
+    ("Coffee 200 g jar", "2101", "5", "pcs", "310"),
+    ("Turmeric powder 200 g", "0910", "5", "pcs", "54"),
+    ("Red chilli powder 200 g", "0904", "5", "pcs", "68"),
+    ("Coriander powder 200 g", "0909", "5", "pcs", "44"),
+    ("Cumin seeds 100 g", "0909", "5", "pcs", "62"),
+    ("Mustard seeds 100 g", "1207", "5", "pcs", "18"),
+    ("Iodised salt 1 kg", "2501", "5", "kg", "24"),
+    ("Rice bran oil 1 L", "1515", "5", "pcs", "152"),
+    ("Basmati rice 5 kg", "1006", "5", "pcs", "560"),
+    ("Wheat atta 10 kg", "1101", "5", "pcs", "420"),
+    ("Biscuits family pack", "1905", "5", "pcs", "35"),
+    ("Instant noodles 12-pack", "1902", "5", "pcs", "168"),
+    ("Bath soap 4-pack", "3401", "18", "pcs", "112"),
+    ("Detergent powder 1 kg", "3402", "18", "kg", "98"),
+    ("Dishwash bar 3-pack", "3402", "18", "pcs", "45"),
+    ("Toothpaste 150 g", "3306", "18", "pcs", "92"),
+    ("Shampoo 340 ml", "3305", "18", "pcs", "199"),
+    ("Hair oil 300 ml", "3305", "18", "pcs", "145"),
+    ("Floor cleaner 1 L", "3402", "18", "pcs", "165"),
+    ("Mosquito coil 10-pack", "3808", "18", "pcs", "38"),
+    ("Matchbox carton (10)", "3605", "18", "pcs", "20"),
+    ("Agarbatti 100 sticks", "3307", "5", "pcs", "55"),
+    ("Tomato ketchup 1 kg", "2103", "5", "pcs", "135"),
+    ("Pickle 500 g", "2001", "5", "pcs", "110"),
+    ("Papad 200 g", "1905", "5", "pcs", "48"),
+]
+
+
 def kirana_items() -> list[Item]:
     rng = random.Random(9)
-    goods = [
-        ("Sunflower oil 1 L pouch", "1512", "5", "pcs", "145"),
-        ("Toor dal 1 kg", "0713", "5", "kg", "128"),
-        ("Moong dal 1 kg", "0713", "5", "kg", "118"),
-        ("Chana dal 1 kg", "0713", "5", "kg", "92"),
-        ("Sugar 1 kg", "1701", "5", "kg", "46"),
-        ("Poha 1 kg", "1904", "5", "kg", "58"),
-        ("Rava 1 kg", "1103", "5", "kg", "52"),
-        ("Besan 1 kg", "1106", "5", "kg", "96"),
-        ("Tea 500 g", "0902", "5", "pcs", "245"),
-        ("Coffee 200 g jar", "2101", "5", "pcs", "310"),
-        ("Turmeric powder 200 g", "0910", "5", "pcs", "54"),
-        ("Red chilli powder 200 g", "0904", "5", "pcs", "68"),
-        ("Coriander powder 200 g", "0909", "5", "pcs", "44"),
-        ("Cumin seeds 100 g", "0909", "5", "pcs", "62"),
-        ("Mustard seeds 100 g", "1207", "5", "pcs", "18"),
-        ("Iodised salt 1 kg", "2501", "5", "kg", "24"),
-        ("Rice bran oil 1 L", "1515", "5", "pcs", "152"),
-        ("Basmati rice 5 kg", "1006", "5", "pcs", "560"),
-        ("Wheat atta 10 kg", "1101", "5", "pcs", "420"),
-        ("Biscuits family pack", "1905", "5", "pcs", "35"),
-        ("Instant noodles 12-pack", "1902", "5", "pcs", "168"),
-        ("Bath soap 4-pack", "3401", "18", "pcs", "112"),
-        ("Detergent powder 1 kg", "3402", "18", "kg", "98"),
-        ("Dishwash bar 3-pack", "3402", "18", "pcs", "45"),
-        ("Toothpaste 150 g", "3306", "18", "pcs", "92"),
-        ("Shampoo 340 ml", "3305", "18", "pcs", "199"),
-        ("Hair oil 300 ml", "3305", "18", "pcs", "145"),
-        ("Floor cleaner 1 L", "3402", "18", "pcs", "165"),
-        ("Mosquito coil 10-pack", "3808", "18", "pcs", "38"),
-        ("Matchbox carton (10)", "3605", "18", "pcs", "20"),
-        ("Agarbatti 100 sticks", "3307", "5", "pcs", "55"),
-        ("Tomato ketchup 1 kg", "2103", "5", "pcs", "135"),
-        ("Pickle 500 g", "2001", "5", "pcs", "110"),
-        ("Papad 200 g", "1905", "5", "pcs", "48"),
-    ]
+    goods = KIRANA_GOODS
     return [
         Item(desc, hsn, Decimal(rng.choice([6, 10, 12, 20, 24, 30])), unit, d(rate), d(gst))
         for desc, hsn, gst, unit, rate in goods
     ]
+
+
+def wholesale_items() -> list[Item]:
+    """76 lines, long enough for three pages (the kirana goods in three brands / pack sizes)."""
+    rng = random.Random(17)
+    variants = (" - Brand A", " - Brand B", " - Bulk pack")
+    items: list[Item] = []
+    for index, suffix in enumerate(variants):
+        for desc, hsn, gst, unit, rate in KIRANA_GOODS:
+            if len(items) >= 76:
+                break
+            price = d(rate) + Decimal(index * 3 + rng.choice([0, 2, 4]))
+            qty = Decimal(rng.choice([4, 6, 8, 12, 15, 18]))
+            items.append(Item(desc + suffix, hsn, qty, unit, price, d(gst)))
+    return items
 
 
 def build_corpus() -> list[Bill]:
@@ -489,6 +602,207 @@ def build_corpus() -> list[Bill]:
             output="photo",
             receipt_time="14:05",
         ),
+        Bill(
+            13, "furniture-intra", "invoice", "happy_intra_state", "dev", "C001",
+            V_FURNITURE, c001, "SFW/26-27/0231", date(2026, 9, 25), "dd-mm-yyyy",
+            [
+                Item("Executive office chair", "9401", d("6"), "pcs", d("4200"), d("18")),
+                Item("Steel almirah 2-door", "9403", d("2"), "pcs", d("9800"), d("18")),
+                Item("Computer table 4 ft", "9403", d("4"), "pcs", d("3600"), d("18")),
+            ],
+            expected_ledger="1500",
+        ),
+        Bill(
+            14, "packaging-intra", "invoice", "happy_intra_state", "test", "C002",
+            V_PACKAGING, c002, "KPS/2627/0764", date(2026, 10, 15), "dd/mm/yyyy",
+            [
+                Item("Paper napkins (carton of 50 packs)", "4818", d("12"), "carton", d("640"),
+                     d("18")),
+                Item("Disposable plates 10 in (pack of 100)", "4823", d("30"), "pack", d("118"),
+                     d("18")),
+                Item("Takeaway containers 500 ml (pack of 50)", "3923", d("20"), "pack",
+                     d("185"), d("18")),
+            ],
+            expected_ledger="5110",
+            layout="compact",
+        ),
+        Bill(
+            15, "grains-inter", "invoice", "happy_inter_state", "dev", "C002",
+            V_GRAINS, c002, "BWG/2627/1302", date(2026, 10, 9), "dd mon yyyy",
+            [
+                Item("Basmati rice 25 kg bag", "1006", d("8"), "bag", d("1900"), d("5")),
+                Item("Poha 30 kg bag", "1904", d("5"), "bag", d("1650"), d("5")),
+            ],
+            expected_ledger="5110",
+        ),
+        Bill(
+            16, "dental-inter", "invoice", "happy_inter_state", "test", "C003",
+            V_DENTAL, c003, "MDD/26-27/1175", date(2026, 10, 12), "dd mon yyyy",
+            [
+                Item("Dental composite kit", "3006", d("4"), "kit", d("3800"), d("18")),
+                Item("Disposable gloves (box of 100)", "4015", d("25"), "box", d("320"), d("18")),
+                Item("Dental impression material", "3407", d("6"), "pack", d("1450"), d("18")),
+            ],
+            expected_ledger="5110",
+            layout="compact",
+        ),
+        Bill(
+            17, "three-page", "invoice", "happy_three_page", "dev", "C001",
+            V_WHOLESALE, c001, "MGS/26-27/2210", date(2026, 10, 27), "dd-mm-yyyy",
+            wholesale_items(),
+            expected_ledger="5100",
+        ),
+        Bill(
+            18, "beverages-mixed-rates", "invoice", "happy_mixed_rates", "test", "C001",
+            V_BEVERAGE, c001, "SBA/26-27/0318", date(2026, 10, 20), "dd-mm-yyyy",
+            [
+                Item("Aerated soft drink 750 ml (crate of 24)", "2202", d("30"), "crate",
+                     d("540"), d("40")),
+                Item("Packaged drinking water 20 L jar", "2201", d("60"), "jar", d("70"),
+                     d("18")),
+                Item("Salted namkeen 400 g (carton of 20)", "2106", d("15"), "carton", d("1180"),
+                     d("5")),
+            ],
+            expected_ledger="5100",
+        ),
+        Bill(
+            19, "blurred-scan", "invoice", "degraded_blur", "dev", "C001",
+            V_STATIONERY, c001, "SSM/26-27/0518", date(2026, 10, 16), "dd-mm-yyyy",
+            [
+                Item("Printer toner cartridge", "8443", d("3"), "pcs", d("2650"), d("18")),
+                Item("Spiral binding sheets", "4820", d("10"), "pack", d("85"), d("18")),
+            ],
+            expected_ledger="6150",
+            output="scan",
+            degrade="blur",
+        ),
+        Bill(
+            20, "skewed-scan", "invoice", "degraded_skew", "dev", "C002",
+            V_ELECTRIC, c002, "PPC/2026/0412", date(2026, 9, 30), "dd/mm/yyyy",
+            [
+                Item("Split AC deep cleaning", "998719", d("4"), "unit", d("900"), d("18")),
+                Item("Ceiling fan repair", "998719", d("2"), "pcs", d("450"), d("18")),
+            ],
+            expected_ledger="6140",
+            layout="compact",
+            output="scan",
+            degrade="skew",
+        ),
+        Bill(
+            21, "low-resolution-scan", "invoice", "degraded_low_resolution", "test", "C001",
+            V_TELECOM, c001, "MMC/OCT26/8841", date(2026, 10, 19), "dd-mm-yyyy",
+            [
+                Item("Postpaid business plans, Oct 2026", "998431", d("5"), "line", d("599"),
+                     d("18")),
+                Item("Data add-on pack, Oct 2026", "998431", d("5"), "pack", d("199"), d("18")),
+            ],
+            expected_ledger="6120",
+            output="scan",
+            degrade="lowres",
+        ),
+        Bill(
+            22, "phone-photo-invoice", "invoice", "degraded_phone_photo", "test", "C003",
+            V_CONSULT, c003, "SC-LLP/2026/061", date(2026, 10, 21), "dd mon yyyy",
+            [
+                Item("GST return filing, Sep 2026", "998213", d("1"), "job", d("6500"), d("18")),
+                Item("Bookkeeping, Sep 2026", "998222", d("1"), "month", d("9000"), d("18")),
+            ],
+            expected_ledger="6160",
+            layout="compact",
+            output="photo",
+            degrade="phone-invoice",
+        ),
+        Bill(
+            23, "missing-vendor-gstin", "invoice", "missing_vendor_gstin", "dev", "C001",
+            V_UNREGISTERED, c001, "GWS/0087", date(2026, 10, 18), "dd-mm-yyyy",
+            [
+                Item("Water purifier annual maintenance", "998719", d("2"), "unit", d("2200"),
+                     d("18")),
+                Item("RO membrane replacement", "998719", d("2"), "pcs", d("1800"), d("18")),
+            ],
+            expected_ledger="6140",
+            expected_errors=["missing_vendor_gstin"],
+        ),
+        Bill(
+            24, "duplicate-invoice", "invoice", "duplicate_invoice", "test", "C001",
+            V_STATIONERY, c001, "SSM/26-27/0412", date(2026, 8, 14), "dd/mm/yyyy",
+            [
+                Item("A4 copier paper 75 GSM", "4802", d("20"), "ream", d("245"), d("18")),
+                Item("Ball pens (box of 10)", "9608", d("15"), "box", d("90"), d("18")),
+                Item("Box files", "4820", d("25"), "pcs", d("65"), d("18")),
+            ],
+            expected_ledger="6150",
+            layout="compact",
+            duplicate_of="intra-classic",
+        ),
+        Bill(
+            25, "ambiguous-date", "invoice", "ambiguous_date", "dev", "C001",
+            V_HARDWARE, c001, "OSH/26-27/0145", date(2026, 5, 4), "dd/mm/yyyy",
+            [
+                Item("Wall paint 20 L bucket", "3208", d("6"), "bucket", d("4300"), d("18")),
+                Item("Paint brushes set", "9603", d("10"), "set", d("240"), d("18")),
+            ],
+            expected_ledger="6140",
+            expected_errors=["ambiguous_date"],
+        ),
+        Bill(
+            26, "invalid-buyer-gstin", "invoice", "invalid_buyer_gstin", "dev", "C001",
+            V_TECH,
+            Party(c001.name, c001.address, c001.state_code, corrupt_gstin(c001.gstin or "")),
+            "TN/MH/26-27/0132", date(2026, 10, 13), "dd-mm-yyyy",
+            [
+                Item("CCTV camera kit 4-channel", "8525", d("2"), "kit", d("18500"), d("18")),
+                Item("Network video recorder 1 TB", "8521", d("1"), "pcs", d("9200"), d("18")),
+            ],
+            expected_ledger="1500",
+            expected_errors=["invalid_buyer_gstin"],
+        ),
+        Bill(
+            27, "stationery-receipt", "receipt", "happy_retail_receipt", "dev", "C001",
+            V_BOOKS, None, "BBD-20417", date(2026, 10, 23), "dd/mm/yyyy",
+            [
+                Item("Gel pens (pack of 10)", "9608", d("3"), "pack", d("120"), d("18")),
+                Item("Stapler with pins", "8472", d("2"), "pcs", d("185"), d("18")),
+                Item("Sticky notes 3x3", "4820", d("6"), "pad", d("45"), d("18")),
+            ],
+            expected_ledger="6150",
+            output="photo",
+            receipt_time="11:20",
+        ),
+        Bill(
+            28, "cafe-receipt", "receipt", "happy_restaurant_receipt", "test", "C002",
+            V_CAFE, None, "CT/0912", date(2026, 10, 17), "dd-mm-yyyy",
+            [
+                Item("Masala chai", "996331", d("6"), "cup", d("25"), d("5")),
+                Item("Vada pav", "996331", d("6"), "pcs", d("30"), d("5")),
+                Item("Bun maska", "996331", d("4"), "pcs", d("45"), d("5")),
+            ],
+            expected_ledger="6180",
+            output="photo",
+            receipt_time="16:30",
+        ),
+        Bill(
+            29, "petrol-receipt", "receipt", "happy_fuel_receipt", "dev", "C002",
+            V_PETROL, None, "SP-77302", date(2026, 10, 28), "dd/mm/yyyy",
+            [Item("Petrol", "2710", d("28.40"), "L", d("104.77"), d("0"))],
+            expected_ledger="6130",
+            output="photo",
+            show_tax=False,
+            receipt_time="09:15",
+        ),
+        Bill(
+            30, "gst-inclusive-receipt", "receipt", "receipt_gst_inclusive", "dev", "C001",
+            V_SWEETS, None, "ASN-5521", date(2026, 10, 25), "dd-mm-yyyy",
+            [
+                Item("Kaju katli 500 g", "1704", d("1"), "box", d("640"), d("5")),
+                Item("Samosa", "1905", d("6"), "pcs", d("15"), d("5")),
+                Item("Jalebi 250 g", "1704", d("1"), "pack", d("120"), d("5")),
+            ],
+            expected_ledger="6180",
+            output="photo",
+            receipt_time="19:05",
+            tax_inclusive=True,
+        ),
     ]
 
 
@@ -547,7 +861,8 @@ def _draw_header(c: Canvas, bill: Bill) -> float:
             y -= 13
             c.drawString(LEFT, y, line)
         y -= 13
-        c.drawString(LEFT, y, f"GSTIN: {vendor.gstin}   State: {STATE_NAMES[vendor.state_code]} "
+        gstin_part = f"GSTIN: {vendor.gstin}   " if vendor.gstin else ""
+        c.drawString(LEFT, y, f"{gstin_part}State: {STATE_NAMES[vendor.state_code]} "
                               f"({vendor.state_code})")
     else:
         c.setFont("Helvetica-Bold", 12)
@@ -560,7 +875,8 @@ def _draw_header(c: Canvas, bill: Bill) -> float:
         c.drawCentredString(PAGE_W / 2, y, ", ".join(vendor.address))
         y -= 12
         state = f"{STATE_NAMES[vendor.state_code]} ({vendor.state_code})"
-        c.drawCentredString(PAGE_W / 2, y, f"GSTIN: {vendor.gstin}  |  State: {state}")
+        gstin_part = f"GSTIN: {vendor.gstin}  |  " if vendor.gstin else ""
+        c.drawCentredString(PAGE_W / 2, y, f"{gstin_part}State: {state}")
     y -= 10
     c.setLineWidth(1)
     c.line(LEFT, y, RIGHT, y)
@@ -695,13 +1011,19 @@ def _receipt_lines(bill: Bill) -> list[tuple[str, str]]:
         lines.append((item.description, "l"))
         lines.append((lr(f"  {_fmt_qty(item)} x {inr(item.rate)}", inr(item.amount)), "l"))
     lines.append(("-" * width, "l"))
-    if bill.show_tax:
+    if bill.tax_inclusive:
+        lines.append((lr("Items Total", inr(bill.taxable_value)), "l"))
+        for label, rate, amount in bill.included_tax_lines():
+            lines.append((lr(f"Incl. {label} @{rate.normalize():f}%", inr(amount)), "l"))
+    elif bill.show_tax:
         lines.append((lr("Sub Total", inr(bill.taxable_value)), "l"))
         for label, rate, amount in bill.tax_lines():
             lines.append((lr(f"{label} @{rate.normalize():f}%", inr(amount)), "l"))
     lines.append((lr("Round Off", inr(bill.round_off)), "l"))
     lines.append((lr("TOTAL Rs.", inr(bill.printed_total)), "l"))
     lines.append(("-" * width, "l"))
+    if bill.tax_inclusive:
+        lines.append(("All prices include GST", "c"))
     if not bill.show_tax:
         lines.append(("Fuel is outside GST", "c"))
     lines.append(("Thank you! Visit again", "c"))
@@ -740,23 +1062,33 @@ def add_noise(img: Image.Image, amount: float) -> Image.Image:
     return Image.blend(img, noise, amount)
 
 
-def make_scan(pdf_path: Path, out_path: Path, rng: random.Random) -> None:
-    img = rasterize(pdf_path, dpi=130).convert("L")
-    img = img.rotate(rng.uniform(0.8, 1.4), expand=True, fillcolor=255, resample=Image.BICUBIC)
-    img = img.filter(ImageFilter.GaussianBlur(0.7))
-    img = add_noise(img, 0.06)
+# (dpi, tilt range in degrees, blur radius, noise) for each way of damaging a scan
+SCAN_KINDS = {
+    "blur": (130, (0.3, 0.6), 1.7, 0.05),
+    "skew": (130, (4.0, 5.0), 0.6, 0.06),
+    "lowres": (85, (0.3, 0.8), 0.5, 0.05),
+}
+
+
+def make_scan(pdf_path: Path, out_path: Path, rng: random.Random, kind: str | None = None) -> None:
+    dpi, tilt, blur, noise = SCAN_KINDS[kind] if kind else (130, (0.8, 1.4), 0.7, 0.06)
+    img = rasterize(pdf_path, dpi=dpi).convert("L")
+    img = img.rotate(rng.uniform(*tilt), expand=True, fillcolor=255, resample=Image.BICUBIC)
+    img = img.filter(ImageFilter.GaussianBlur(blur))
+    img = add_noise(img, noise)
     img = img.point(lambda p: min(255, int(p * 0.95 + 6)))
     img.save(out_path, optimize=True)
 
 
-def make_photo(pdf_path: Path, out_path: Path, rng: random.Random) -> None:
-    receipt = rasterize(pdf_path, dpi=200).convert("L")
+def make_photo(pdf_path: Path, out_path: Path, rng: random.Random, kind: str | None = None) -> None:
+    dpi, blur = (140, 0.7) if kind == "phone-invoice" else (200, 1.0)
+    receipt = rasterize(pdf_path, dpi=dpi).convert("L")
     receipt = receipt.point(lambda p: int(p * 0.88 + 14))  # off-white thermal paper
     pad = 140
     background = Image.new("L", (receipt.width + 2 * pad, receipt.height + 2 * pad), 92)
     background.paste(receipt, (pad, pad))
     photo = background.rotate(rng.uniform(2.5, 4.0), fillcolor=92, resample=Image.BICUBIC)
-    photo = photo.filter(ImageFilter.GaussianBlur(1.0))
+    photo = photo.filter(ImageFilter.GaussianBlur(blur))
     photo = add_noise(photo, 0.07).convert("RGB")
     photo.save(out_path, quality=82)
 
@@ -792,7 +1124,7 @@ def expected_fields(bill: Bill) -> dict[str, object]:
         fields["buyer_name"] = bill.buyer.name
         fields["buyer_gstin"] = bill.buyer.gstin
         fields["place_of_supply"] = bill.place_of_supply
-    if bill.show_tax:
+    if bill.show_tax and not bill.tax_inclusive:
         fields["taxable_value"] = money(bill.taxable_value)
         fields["cgst"] = money(bill.tax_total("CGST"))
         fields["sgst"] = money(bill.tax_total("SGST"))
@@ -800,8 +1132,8 @@ def expected_fields(bill: Bill) -> dict[str, object]:
     return fields
 
 
-def manifest_entry(bill: Bill, pages: int) -> dict[str, object]:
-    return {
+def manifest_entry(bill: Bill, pages: int, files: dict[str, str]) -> dict[str, object]:
+    entry: dict[str, object] = {
         "file": f"generated/{bill.filename}",
         "split": bill.split,
         "client": bill.client_id,
@@ -814,6 +1146,15 @@ def manifest_entry(bill: Bill, pages: int) -> dict[str, object]:
         "expected_ledger": bill.expected_ledger,
         "fields": expected_fields(bill),
     }
+    if bill.duplicate_of:
+        # On its own the file is a normal invoice. Uploaded after `duplicate_of` for the same
+        # client, the duplicate rule fires: the evaluation runs it in that order.
+        entry["duplicate_of"] = f"generated/{files[bill.duplicate_of]}"
+        entry["expected_when_original_exists"] = {
+            "expected_status": "needs_review",
+            "expected_errors": ["duplicate_invoice"],
+        }
+    return entry
 
 
 def check(bill: Bill) -> None:
@@ -823,11 +1164,17 @@ def check(bill: Bill) -> None:
 
     vendor_ok = bill.vendor.gstin is None or gstin_lib.is_valid(bill.vendor.gstin)
     assert vendor_ok == ("invalid_vendor_gstin" not in errors), f"{name}: vendor GSTIN"
+    if bill.kind == "invoice":
+        assert (bill.vendor.gstin is None) == ("missing_vendor_gstin" in errors), (
+            f"{name}: missing vendor GSTIN"
+        )
     if bill.buyer and bill.buyer.gstin:
-        assert gstin_lib.is_valid(bill.buyer.gstin), f"{name}: buyer GSTIN must be valid"
-        client = CLIENTS_BY_ID[bill.client_id]
-        is_client = bill.buyer.gstin == client.gstin
-        assert is_client == ("buyer_not_client" not in errors), f"{name}: buyer vs client"
+        buyer_ok = gstin_lib.is_valid(bill.buyer.gstin)
+        assert buyer_ok == ("invalid_buyer_gstin" not in errors), f"{name}: buyer GSTIN"
+        if buyer_ok:
+            client = CLIENTS_BY_ID[bill.client_id]
+            is_client = bill.buyer.gstin == client.gstin
+            assert is_client == ("buyer_not_client" not in errors), f"{name}: buyer vs client"
 
     intra = bill.vendor.state_code == bill.place_of_supply
     split_ok = not bill.show_tax or bill.is_igst != intra
@@ -839,7 +1186,10 @@ def check(bill: Bill) -> None:
     assert len(bill.invoice_number) <= 16, f"{name}: invoice number longer than 16"
     assert bill.invoice_date <= TODAY, f"{name}: date in the future"
     if bill.date_style != "dd mon yyyy":
-        assert bill.invoice_date.day > 12, f"{name}: numeric date must not be ambiguous"
+        ambiguous = bill.invoice_date.day <= 12 and bill.invoice_date.day != bill.invoice_date.month
+        assert ambiguous == ("ambiguous_date" in errors), f"{name}: date ambiguity"
+    else:
+        assert "ambiguous_date" not in errors, f"{name}: a written month is never ambiguous"
     assert abs(bill.round_off) < 1, f"{name}: round off"
 
 
@@ -851,7 +1201,10 @@ def main() -> None:
 
     rng = random.Random(2026)
     entries = []
-    for bill in build_corpus():
+    corpus = build_corpus()
+    files = {bill.slug: bill.filename for bill in corpus}
+    assert len(files) == len(corpus), "slugs must be unique"
+    for bill in corpus:
         check(bill)
         target = OUT_DIR / bill.filename
         pdf_path = target if bill.output == "pdf" else OUT_DIR / f"_{bill.number:02d}.pdf"
@@ -862,12 +1215,14 @@ def main() -> None:
         with pymupdf.open(pdf_path) as doc:
             pages = doc.page_count
         if bill.output == "scan":
-            make_scan(pdf_path, target, rng)
+            make_scan(pdf_path, target, rng, bill.degrade)
         elif bill.output == "photo":
-            make_photo(pdf_path, target, rng)
+            make_photo(pdf_path, target, rng, bill.degrade)
+        if bill.scenario == "happy_three_page":
+            assert pages == 3, f"{bill.filename}: expected 3 pages, got {pages}"
         if pdf_path != target:
             pdf_path.unlink()
-        entries.append(manifest_entry(bill, pages))
+        entries.append(manifest_entry(bill, pages, files))
         status = "needs_review" if bill.expected_errors else "ready"
         print(f"  {bill.filename:<32} {pages}p  {status:<13} {', '.join(bill.expected_errors)}")
 

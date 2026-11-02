@@ -1,6 +1,8 @@
 from datetime import date
 
 from app.clients import CLIENTS_BY_ID
+from app.config import APP_CONFIG
+from app.correction_email.eligibility import is_supplier_fixable
 from app.normalisation.dates import parse_date
 from app.schemas.documents import Invoice
 from app.schemas.fields import GroundedField
@@ -9,6 +11,7 @@ from app.validation.invoice import header_issues
 
 CLIENT = CLIENTS_BY_ID["C001"]  # 23QXGPS4821K1ZU
 TODAY = date(2026, 10, 31)
+THRESHOLD = APP_CONFIG.confidence_threshold
 VENDOR_GSTIN = "23QSSPM6142B1ZF"
 OTHER_CLIENT_GSTIN = CLIENTS_BY_ID["C003"].gstin
 
@@ -112,6 +115,23 @@ def test_an_invalid_buyer_gstin_is_not_also_reported_as_not_client():
     assert IssueCode.BUYER_NOT_CLIENT not in codes(good(buyer_gstin="23QXGP54821K1ZU"))
 
 
+def test_vendor_gstin_equal_to_the_clients_is_blocking_and_not_supplier_fixable():
+    # The Bill To GSTIN read as the vendor's (sample 23): valid and on the page, so only this
+    # rule catches it. The buyer GSTIN is then usually empty, which is a warning on its own.
+    issues = header_issues(
+        good(vendor_gstin=CLIENT.gstin, buyer_gstin=None), {}, CLIENT, TODAY
+    )
+    assert [i.code for i in issues] == [IssueCode.VENDOR_IS_CLIENT, IssueCode.MISSING_BUYER_GSTIN]
+    assert issues[0].severity == Severity.ERROR
+    assert issues[0].field == "vendor_gstin"
+    assert not is_supplier_fixable(IssueCode.VENDOR_IS_CLIENT)
+
+
+def test_a_different_valid_vendor_gstin_is_not_the_client():
+    assert IssueCode.VENDOR_IS_CLIENT not in codes(good())
+    assert IssueCode.VENDOR_IS_CLIENT not in codes(good(vendor_gstin=OTHER_CLIENT_GSTIN))
+
+
 def test_reverse_charge_warning():
     issues = header_issues(good(reverse_charge=True), {}, CLIENT, TODAY)
     assert [i.code for i in issues] == [IssueCode.REVERSE_CHARGE]
@@ -132,7 +152,10 @@ def test_ungrounded_optional_field_is_ignored():
 
 
 def test_low_confidence_required_field_is_a_warning():
-    fields = {"invoice_number": grounded(0.79), "total": grounded(0.80)}
+    fields = {
+        "invoice_number": grounded(THRESHOLD - 0.01),
+        "total": grounded(THRESHOLD),
+    }
     issues = header_issues(good(), fields, CLIENT, TODAY)
     assert [(i.code, i.field) for i in issues] == [
         (IssueCode.LOW_CONFIDENCE_FIELD, "invoice_number")

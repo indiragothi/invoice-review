@@ -70,6 +70,7 @@ uv run --locked --no-sync python ../playground/intake_samples.py       # upload 
 uv run --locked --no-sync python ../playground/service_samples.py      # document service on samples, offline
 uv run --locked --no-sync python ../playground/api_samples.py          # HTTP API via TestClient, offline
 uv run --locked --no-sync python ../playground/walkthrough_live.py     # needs the server running; LIVE: 15 calls, dev split only
+uv run --locked --no-sync python -m scripts.evaluate_corpus --split dev --setup all   # cached; --live asks for missing answers; test split needs --allow-test
 uv run --locked --no-sync pytest                                        # pure-module tests
 ```
 

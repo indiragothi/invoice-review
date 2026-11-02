@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal as D
 
 from app.clients import CLIENTS_BY_ID
+from app.config import APP_CONFIG
 from app.normalisation.dates import parse_date
 from app.schemas.documents import Invoice, LineItem, Receipt, TaxLine
 from app.schemas.fields import GroundedField
@@ -13,6 +14,8 @@ CLIENT = CLIENTS_BY_ID["C001"]
 TODAY = date(2026, 10, 31)
 INVOICE_KEYS = ("vendor_name", "vendor_gstin", "invoice_number", "invoice_date", "total")
 RECEIPT_KEYS = ("vendor_name", "invoice_date", "total")
+
+THRESHOLD = APP_CONFIG.confidence_threshold
 
 
 RAW = {"vendor_gstin": "23QSSPM6142B1ZF", "invoice_date": "14-08-2026", "total": "1,180.00"}
@@ -83,13 +86,13 @@ def test_warnings_alone_keep_the_invoice_ready():
 
 
 def test_a_required_field_below_the_threshold_means_needs_review():
-    result = review_invoice(fields=good_fields(INVOICE_KEYS, confidence=0.79))
+    result = review_invoice(fields=good_fields(INVOICE_KEYS, confidence=THRESHOLD - 0.01))
     assert result.status == "needs_review"
     assert IssueCode.LOW_CONFIDENCE_FIELD in [i.code for i in result.issues]
 
 
 def test_exactly_the_threshold_is_enough():
-    assert review_invoice(fields=good_fields(INVOICE_KEYS, confidence=0.80)).status == "ready"
+    assert review_invoice(fields=good_fields(INVOICE_KEYS, confidence=THRESHOLD)).status == "ready"
 
 
 def test_an_ungrounded_or_absent_required_field_means_needs_review():

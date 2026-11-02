@@ -54,7 +54,7 @@ This mirrors the scope of the reference build ([e2e-invoice-review](https://gith
 | Correction-email draft, never sent | Same: "please issue a corrected invoice / credit note" |
 | SQLite, local files, welcome → upload → process → review flow | Same |
 | Review history with explicit delete | Same |
-| 13-document corpus | 36+ documents with a dev / test split (roadmap asks for 30+) |
+| 13-document corpus | 30 documents with a dev / test split (decision D15; first plan was 36+) |
 | Shared-password gate for the deployed demo | Same |
 | — | Export approved records to CSV / Excel |
 
@@ -76,7 +76,7 @@ User accounts and roles (only one shared demo password), client management, mult
 
 ## Success criteria
 
-- Field-level accuracy reported on **30+ documents** (target 36+) against ground truth, on a held-out test split.
+- Field-level accuracy reported on **30 documents** against ground truth, on a held-out test split.
 - **No record with a blocking validation error can be approved or exported** without a human correcting it. Enforced in the service layer and checked by the evaluation script.
 - Every displayed value links back to a region of the page.
 - Roadmap extras: security pass, live deployment, demo video.

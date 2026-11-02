@@ -54,13 +54,12 @@ def validate_receipt(
         issues.append(problem)
 
     totals = tax.tax_totals(receipt.tax_lines)
-    computed = tax.receipt_computed_total(receipt.line_items, totals, receipt.round_off)
-    if (
-        computed is not None
-        and receipt.total is not None
-        and not totals.unreadable
-        and tax.differs(computed, receipt.total)
-    ):
+    computed = None
+    if receipt.total is not None and not totals.unreadable:
+        computed = tax.receipt_total_problem(
+            receipt.line_items, totals, receipt.round_off, receipt.total
+        )
+    if computed is not None:
         issues.append(
             make_issue(
                 IssueCode.LINE_ITEMS_SUM_MISMATCH,

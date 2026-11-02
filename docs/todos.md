@@ -13,7 +13,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 | M2 Ground + validate | ✅ Done (`READINGS_DISAGREE` and `DUPLICATE_FILE` move to M3) |
 | M3 Pipeline + API | ✅ Done (your manual check of `/docs` and the XLSX is open; test-split samples are left for M5) |
 | M4 Review UI | ✅ Done (walkthrough run by the owner; demo document 3 used `07-wrong-tax-split` instead of `06`, see `build-along.md`) |
-| M5 Evaluation | ⬜ Not started |
+| M5 Evaluation | ✅ Done (30 documents, Gemini only; see D15 and the README Results) |
 | M6 Ship | ⬜ Not started |
 | M7 Stretch | ⬜ Not started |
 
@@ -152,16 +152,16 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 
 ## M5 Evaluation
 
-- [ ] Grow the corpus to 36+ (degraded variants, more failure cases, receipts)
-- [ ] Assign dev / test split in `manifest.json`
-- [ ] `scripts/evaluate_corpus.py`: field, line-item, exact-doc, status, error-code, ledger, provenance, time / calls
-- [ ] Safety invariant check: zero violations
-- [ ] Tune confidence threshold on dev only
-- [ ] Experiments: second reading never / on doubt / always; Gemini vs NVIDIA
-- [ ] Error analysis: ten worst fields with examples
-- [ ] Results table in README
-- [ ] Update `build-along.md`
-- [ ] **M5 exit:** test-split results committed, safety invariant holds
+- [x] Grow the corpus to 30 (degraded variants, more failure cases, receipts); owner chose 30 instead of 36+, see D15
+- [x] Assign dev / test split in `manifest.json` (18 dev, 12 test)
+- [x] `scripts/evaluate_corpus.py`: field, line-item, exact-doc, status, error-code, ledger, provenance (proxy), time / calls (offline from cache; `--live` for missing answers)
+- [x] Safety invariant check: zero violations (dev and test; test has only 2 documents with a blocking error)
+- [x] Tune confidence threshold on dev only (0.80 to 0.70, D17; weak evidence, to be checked on the test split)
+- [x] Experiments: second reading never / on doubt / always (Gemini only; NVIDIA postponed, D15)
+- [x] Error analysis: ten worst fields with examples (few wrong fields: the failures are listed in `build-along.md` slice 52 and the results files)
+- [x] Results table in README
+- [x] Update `build-along.md`
+- [x] **M5 exit:** test-split results committed, safety invariant holds
 
 ## M6 Ship
 

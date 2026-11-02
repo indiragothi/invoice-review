@@ -907,3 +907,121 @@ Owner decisions (2026-11-01): screens are switched by **state in `App.tsx`** (no
 Slices 34-44 built the review UI in `frontend/`: a typed API client (`lib/api.ts`, `lib/types.ts`), UI primitives, screens switched by state in `App.tsx` (no router), welcome, upload with client picker and preview, processing with retry, an inbox with server-side filters, bulk approve and export, and the review screen with the page overlay (boxes drawn in percent of the image's natural size), editable fields, issues with the GSTIN suggestion, ledger picker, approve / reject / delete behind confirm dialogs, and the correction-email draft with Copy. The screens only show what the server decides: the approval rules, "supplier can fix" and "low confidence" all come from the backend, so the UI cannot disagree with the policy. Model calls start only from a click. Checks: `tsc`, `lint` and `build` pass; no frontend unit tests (the project tests only pure backend modules). **Open for later:** the login screen and the password gate (M6); adding or removing line items (the API edits existing paths only); the test split with the real model and the confidence threshold (M5). **Next:** M5, evaluation.
 
 Important locations: `frontend/src/App.tsx`, `frontend/src/lib/api.ts`, `frontend/src/components/ReviewScreen.tsx`, `PageViewer.tsx`, `FieldRow.tsx`, `IssuesPanel.tsx`, `LedgerPicker.tsx`, `DecisionBar.tsx`, `InboxScreen.tsx`, `CorrectionEmail.tsx`.
+
+## M5 Evaluation
+
+### Slice 45: corpus of 30 documents
+
+- **Outcome:** `samples/` has 30 documents instead of 12 (18 dev, 12 test), all from `backend/scripts/generate_samples.py`, and `samples/manifest.json` has 30 entries. New: six clean invoices (different layouts, intra / inter-state, clients C001-C003, one with 76 lines over three pages, one with 40 % / 18 % / 5 % rates), four degraded invoices (blur, 4-5 degree skew, 85 dpi, phone photo), four failure cases (missing vendor GSTIN, duplicate of 01, ambiguous date, invalid buyer GSTIN) and four receipts (retail, cafe, petrol, and one whose prices already include GST).
+- **Decision (owner):** 30 documents, not 36+, and Gemini only; NVIDIA is postponed. Recorded as D15 in `docs/decisions.md`; `evaluation.md`, `roadmap.md`, `client-brief.md` and `todos.md` were updated to match.
+- **Why:** a smaller corpus gets the first real numbers sooner. It still meets the "30+ documents" exit criterion, and every extra document later is one more `Bill(...)` entry. The new cases are the ones the earlier slices said they could not test: real OCR damage, the `filled` second-reading path, a bill with no tax breakup that is GST-inclusive (the false `LINE_ITEMS_SUM_MISMATCH` risk noted in slice 26), and failure codes that had no sample.
+- **How:** new `Bill` fields `degrade`, `tax_inclusive`, `duplicate_of`; `make_scan` / `make_photo` take a damage kind; `check()` now also verifies missing vendor GSTIN, invalid buyer GSTIN and date ambiguity from the document itself, so a sample cannot test something other than what the manifest says. Rates use only the 0 / 5 / 18 / 40 slabs valid after 22 September 2025 (a 12 % line would raise `UNUSUAL_TAX_RATE`).
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync python -m scripts.generate_samples
+  uv run --locked --no-sync python ../playground/intake_samples.py     # all 30 accepted
+  uv run --locked --no-sync python ../playground/read_samples.py       # OCR / text layer on all 30
+  ```
+
+- **Result:** generation passes all checks. Documents 01-12 and their 12 manifest entries are byte-identical to before. `intake_samples.py` prints `ACCEPTED 30/30 with the right page count`; `read_samples.py` reads all 30 (no model); ruff clean, 324 tests pass. I looked at three of the new documents as images (23, 30, 21); not all 18.
+- **Live calls used:** 0.
+- **What this does not show:** nothing about model accuracy on the new documents (see slice 46). The offline scripts that read `playground/output/extract/` (`ground_samples`, `normalise_samples`, `tax_samples`, `rules_samples`, `pipeline_samples`, `repository_samples`, `service_samples`, `api_samples`) read the old `extract_v1` cache of the first 12 documents and stop at document 13, so their `12/12`-style totals cannot be repeated on 30 documents. The production prompt is `extract_v2`; the evaluation script will read that. Ground truth for 25 (ambiguous date) records the DD-MM reading, 4 May 2026.
+- **Checkpoint:** `generate_samples.py` ends with `Wrote 30 documents`; `intake_samples.py` prints `ACCEPTED 30/30`.
+
+### Slice 46: reading A on the 11 new dev documents, first look at the dev split
+
+- **Outcome:** `extract_samples.py all --split dev` read the 11 new dev documents (13, 15, 17, 19, 20, 23, 25, 26, 27, 29, 30) with the production prompt `extract_v2`; answers are cached in `playground/output/extract_v2/` (18 dev documents now). No test-split document was sent to the model.
+- **Why:** the new documents exist to find what the first 12 could not. Dev is the split that may be used for tuning.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync python ../playground/extract_samples.py all --split dev
+  ```
+
+- **Live calls used:** 11 (`gemini-3.5-flash-lite`, 2.2-31 s each; the three-page invoice took 31 s and 16k + 14k tokens, so a 76-line bill is close to what one call can do).
+- **Result (reading A only, rough scorer):** 217 of 228 fields match on the 18 dev documents. The whole pipeline run offline on the cached answers (ledger not compared: the new documents have no ledger answer yet) agrees with the manifest on **15/18** dev documents. The three that do not:
+  - `23-missing-vendor-gstin`: **ends `ready` with no error, but should be `needs_review` with `missing_vendor_gstin`.** The model read the client's GSTIN (printed under "Bill To") as the vendor GSTIN and left the buyer GSTIN empty. The value really is on the page, so grounding accepts it, and it is a valid GSTIN, so no rule fires. This is exactly the case the evaluation's safety invariant is for.
+  - `20-skewed-scan`: a false blocking `line_items_sum_mismatch` plus a `low_confidence_field` warning on a clean bill (a 4-5 degree tilt, OCR path).
+  - `27-stationery-receipt`: `needs_review` only because of `low_confidence_field` (OCR confidence below the threshold) on a clean receipt.
+- **Smaller findings:** blurred scan (19) gives `8.800.0 0` for the taxable value and run-together names, which the rules still accept; on 15 and 26 the model gives the place of supply as a state name where the manifest holds the code (the normaliser reads both, as before); sample 30 (GST-inclusive receipt) did **not** raise a false sum mismatch.
+- **What this does not show:** one run per document on dev only, a rough scorer, no test numbers, no ledger answers for the new documents, no second reading. The three failures are not fixed yet and nothing was tuned: the vendor-GSTIN confusion needs a decision (prompt, or a rule such as vendor GSTIN equal to the client's GSTIN) and the threshold needs the tuning step.
+- **Checkpoint:** `extract_samples.py all --split dev` ends with `TOTAL type 18/18 | fields 217/228` from the cache.
+
+### Slice 47: vendor GSTIN equal to the client's (rule), and prompt `extract_v3` (written, not yet run)
+
+- **Outcome:** fixes the safety hole found in slice 46 (sample 23 ended `ready`). (a) New blocking code `VENDOR_IS_CLIENT` in `validation/invoice.py` (`_gstin_issues`): a vendor GSTIN equal to the selected client's GSTIN. Not supplier-fixable (`correction_email/eligibility.py` unchanged), invoices only, listed in `policy-rules.md`. Two tests added. (b) `providers/prompts/extract_v3.md` = `extract_v2` plus rule 8: a GSTIN under Bill To / Buyer / Consignee / Ship To is the buyer's, and a missing issuer GSTIN is `null`. `EXTRACT_PROMPT` was switched to `extract_v3` after the comparison below.
+- **Why:** the rule does not depend on the model, so it catches this failure whatever the prompt does; the prompt makes the model less likely to make the mistake, so the reviewer sees the true `missing_vendor_gstin`. Order: rule first, prompt second.
+- **Commands** (from `backend/`):
+
+  ```powershell
+  uv run --locked --no-sync ruff check app scripts tests ../playground
+  uv run --locked --no-sync pytest
+  ```
+
+- **Result:** ruff clean, 326 tests pass. On the cached dev readings, sample 23 is now `needs_review` with `vendor_is_client` (it was `ready`). The manifest still says `missing_vendor_gstin` (the truth about the bill), so the script still counts 23 as a mismatch: **15/18** dev documents match status **and** codes, and **16/18** have the right status (before: 15/18). The two with a wrong status are 20 and 27 (false `needs_review`); they were not touched. Nothing else changed.
+- **Live calls used:** 0.
+- **What this does not show:** whether `extract_v3` works (not run; it needs live calls on dev, see below) and whether it breaks anything: the risk is documents 08 (buyer is not the client) and 26 (invalid buyer GSTIN), where the buyer GSTIN matters. The rule `VENDOR_IS_CLIENT` is tested only with made-up data and on one real document.
+- **Comparison run (owner approved):** `extract_samples.py all --prompt extract_v3 --split dev`, **18 live calls** (`gemini-3.5-flash-lite`, 1.8-32 s each, cached in `playground/output/extract_v3/`; no test-split document sent).
+- **Result of the comparison (dev, one run):** fields **221/228** (v2: 217/228). Sample 23 now returns `vendor_gstin = null` (14/14) and the pipeline gives `needs_review` with `missing_vendor_gstin`, the code in the manifest. Samples 08 (buyer is not the client) and 26 (invalid buyer GSTIN) are unchanged and right. The pipeline agrees with the manifest (status and codes) on **16/18** dev documents (v2: 15/18); the two left are 20 and 27, not touched. Grounded values 1,052 / 1,079 against 1,057 / 1,079 (a few more lines ungrounded on 11 and 17; not examined further).
+- **Decision:** `EXTRACT_PROMPT = "extract_v3"` in `providers/__init__.py`. The rule `VENDOR_IS_CLIENT` stays as the model-independent guard.
+- **What this does not show:** one run per document on dev only; model output varies a little between runs. The gain is one document (23), which the prompt was written for, so it says little about unseen bills. The test split has not seen v3. The offline `playground/*_samples.py` scripts still read the old `extract_v1` cache.
+- **Checkpoint:** `extract_samples.py all --prompt extract_v3 --split dev` ends with `TOTAL type 18/18 | fields 221/228` from the cache; ruff and 326 tests pass.
+
+### Slice 48: sample 20, a tilted scan: rows are grouped after undoing the tilt (decision D16)
+
+- **Outcome:** `backend/app/reader/rows.py` (pure: `estimate_tilt`, `assign_rows`), used by `reader/ocr.py`; `format_words` (`providers/__init__.py`) and `locate_value` (`pipeline/agreement.py`) sort the words of a line left to right. `tests/test_reader_rows.py` has 7 tests. New prompt `extract_v4` (= `extract_v3` + rule 9: a value never contains its label), now `EXTRACT_PROMPT`.
+- **Why:** sample 20 (4-5 degree tilt) got a false blocking `line_items_sum_mismatch`. Cause (found by looking at the words, not at the model): OCR numbers each cell as a line ordered by height, so on the tilted page the amount of a row (y=370) came before its rate (y=385) and the model swapped them (`rate 3,600.00`, `amount 900.00`). The rule was right to block; the reader was wrong.
+- **Commands** (from `backend/`): `pytest`, `ruff check app scripts tests ../playground`; `extract_samples.py 11 19 20 27 29 30 --prompt extract_v3 --fresh` and then `--prompt extract_v4`; `extract_samples.py all --prompt extract_v4 --split dev`.
+- **Live calls used:** 24 (`gemini-3.5-flash-lite`, dev only): 6 for `extract_v3` on the six OCR documents with the new line format (their old answers were replaced; a copy of the old ones is not kept in the repo), 6 for `extract_v4` on the same, 12 for `extract_v4` on the other dev documents.
+- **Result:** sample 20 now reads `1 Split AC deep cleaning 998719 4unit 900.00 18 3,600.00` and the extraction is 13/14 with both line items right; the false error is gone. **Side effect, found and fixed in the same slice:** with a label and its value on one line the model copied the label into the value on sample 19 (`Grand Total (Rs.) 10,384.00` -> `missing_total`); `extract_v4` rule 9 fixes it (19: 12/14, `ready`). `extract_v4` on all 18 dev documents: fields **222/228** (v3 221/228, v2 217/228). 333 tests pass; ruff clean.
+- **Not fixed / seen again:** sample 23: `extract_v4` read the client's GSTIN as the vendor's again (`extract_v3` had returned null): the prompt rule is not reliable, the `VENDOR_IS_CLIENT` rule from slice 47 still makes it `needs_review`, only the code differs from the manifest. Sample 30 (GST-inclusive receipt): the model sometimes returns the included CGST / SGST as tax lines (v3 first run: no, v3 second run and v4: yes), which gives a false blocking `line_items_sum_mismatch`; this is the risk noted in slice 26, now seen on a real document, and is open.
+- **What this does not show:** one run per document on dev; model output varies between runs (23 and 30 changed without a change of meaning). The row grouping also changes the text for the first 12 documents that are OCR (10, 11, 12): only 11 was re-read. The test split has not been read with the new line format.
+
+### Slice 49: confidence threshold 0.70 (decision D17)
+
+- **Outcome:** `AppConfig.confidence_threshold` 0.80 -> 0.70 (`config.py`). Two tests that hard-coded 0.79 / 0.80 now use the configured threshold. `policy-rules.md` and `todos.md` updated.
+- **Why:** after slice 48, samples 20 and 27 were `needs_review` only for `low_confidence_field` (vendor GSTIN 0.77, total 0.73), and both values were right.
+- **Evidence (dev OCR documents 11, 19, 20, 27, 29, 30, 0 live calls, from the cached readings):** every required field with confidence 0.71-0.80 was correct. The only wrong value (sample 19 vendor name, a missing space) had 0.98. So the threshold did not separate right from wrong; at 0.70 nothing correct is flagged.
+- **Result:** with `extract_v4` on the cache, the whole pipeline agrees with the manifest (status and codes) on **16/18** dev documents (earlier today 15/18, then 16/18). Status is right on 17/18. The two left: sample 23 (right status, `vendor_is_client` instead of `missing_vendor_gstin`) and sample 30 (false `line_items_sum_mismatch`, see slice 48).
+- **What this does not show:** 30 field values on 6 documents; a misread between 0.70 and 0.80 would now pass. The test split must say whether that happened: report every wrong required value with confidence 0.70-0.80.
+- **Checkpoint:** `pytest` 333 passed; the pipeline on the cached `extract_v4` answers prints `AGREE 16/18 dev documents`.
+
+### Slice 50: receipts whose prices already include GST (sample 30)
+
+- **Outcome:** `tax.receipt_total_problem` (pure) and the receipt rule in `validation/receipt.py`: `LINE_ITEMS_SUM_MISMATCH` is raised only when the printed total matches **neither** lines + tax + round-off **nor** the lines + round-off alone. `policy-rules.md` says so. Two tests added (GST-inclusive passes; a total that fits neither way still fails).
+- **Why:** the model sometimes returns the information-only rows "Incl. CGST 2.5% / SGST 2.5%" as tax lines (sample 30, seen on a real run in slice 48), and then lines + tax is 890.48 against a total of 850.00. The bill is right; asking the reviewer to fix it wastes their time. Prompt changes did not make this stable, so the rule makes the check independent of how the model reads those rows.
+- **Cost of the rule:** a receipt whose total is the lines **without** its printed tax would now pass the sum check (the total looks like a tax-inclusive price). That is a missing-tax error the check can no longer see; the tax-inclusive case is far more common on receipts.
+- **Result:** 335 tests pass, ruff clean. On the cached `extract_v4` answers the pipeline now agrees with the manifest on **17/18** dev documents (status right on 18/18); the one left is sample 23 (`vendor_is_client` instead of `missing_vendor_gstin`, see slice 47). Live calls: 0.
+- **Checkpoint:** `pytest` 335 passed.
+
+### Slice 51: `evaluate_corpus.py` and the dev results
+
+- **Outcome:** `backend/scripts/evaluate_corpus.py`: runs the whole pipeline over the manifest for one or all of the three setups (`SECOND_READING` never / on_doubt / always) and writes `evaluation/results-<date>-<split>.md` with the metrics of `docs/evaluation.md` (field, line-item, exact-document, status, error-code recall / precision, ledger, provenance **proxy**, seconds, calls and tokens per document, safety invariant, per-field table, differing documents, worst fields). Model answers are cached by file hash, prompt and model in `evaluation/cache/` (git-ignored; the answers from `playground/output/` are used when they match). Without `--live` nothing is sent to the model; the test split needs `--allow-test`; `--max-calls` stops a run; the number of missing answers is printed first. The original of the duplicate (24 after 01) is run first so `duplicate_invoice` can fire.
+- **Bug found by the evaluation:** a quantity printed with a unit (`20 ream`) was normalised to `None` (so the stored quantity was lost on most invoices); `parse_quantity` (new, `normalisation/amounts.py`) takes the leading number, `agreement.py` uses the same function, a test added. Line-item accuracy went from 0 / 143 (every row had a missing quantity) to 140 / 143.
+- **Live calls used:** 22 (`gemini-3.5-flash-lite`, dev only): the ledger for 11 new documents and reading B for 11 new documents.
+- **Result (dev split, 18 documents, one run; not the reported numbers):**
+
+  | Setup | Field acc. | Exact-doc | Status acc. | API calls/doc |
+  |---|---|---|---|---|
+  | A only | 99.0 % (207/209) | 94.4 % (17/18) | 100 % (18/18) | 2.00 |
+  | A + B on doubt | 99.0 % | 94.4 % | 100 % | 2.00 (B ran on 0 of 18) |
+  | A + B always | 99.5 % (208/209) | 94.4 % | 100 % | 3.00 (B ran on 18) |
+
+  Line items 97.9 % (140/143); ledger 94.4 % (17/18; sample 15 differs); error-code recall and precision 83 % (5 of 6; sample 23 gives `vendor_is_client` where the manifest says `missing_vendor_gstin`); provenance proxy 100 % (71/71); **safety invariant holds on dev, 0 violations** in all three setups.
+- **What this does not show:** these are the documents the prompt, rules and threshold were tuned on, so the figures are optimistic. `on_doubt` never fired, so on dev it equals A only; `always` changed one field (reading B filled the missing buyer GSTIN of sample 23: 208/209) and no status, for one more call per document and **34.5 s per document against 6.0 s** (recorded model time of the calls; the long B calls were not examined). Provenance is a proxy (the cited words contain the true value), not a box-overlap check against true positions: the corpus has no ground-truth boxes. The ledger of sample 15 (restaurant raw material bought as rice and poha: `5100` or `5110`) is ambiguous by nature. The test split has not been run.
+- **Checkpoint:** `python -m scripts.evaluate_corpus --split dev --setup all` from the cache ends with the table above and `Live calls made in this run: 0`.
+
+### Slice 52: test-split evaluation (reported numbers) and the README results
+
+- **Outcome:** the test split was run once with `evaluate_corpus.py --split test --allow-test --setup all --live`; `evaluation/results-2026-11-02-test.md` (and `-dev.md`) hold the tables; `README.md` "Results" is filled in. The script's "differs from the manifest" list now also shows line-item differences (it showed only fields, status, codes and ledger before); the two result files were rebuilt from the cache with 0 calls.
+- **Live calls used:** 36 (12 reading A, 12 ledger, 12 reading B), `gemini-3.5-flash-lite`, 947 s with free-tier pacing. Nothing was tuned after the run: prompts, rules, threshold and manifest are as they were before it.
+- **Result (test, 12 documents):** field accuracy 100 % (148/148), exact-document 100 %, status 100 %, line items 86.7 % (26/30), ledger 91.7 % (11/12), error-code recall / precision 100 % (2/2), provenance proxy 100 %, **safety invariant holds (0 violations)**; identical in the three setups. `on_doubt` ran on 0 of 12 documents; `always` on 12 of 12 for 1 more call and about 19 s per document, with no change in any score.
+- **Findings, not fixed (the test split is not for tuning):**
+  - Line items: OCR spelling in descriptions on 10 (`laminat d`), 12 (`（2 pc）` with full-width brackets) and 21 (`lans`, a missing quantity on an 85 dpi scan). On dev: sample 19 rate `2.65` for `2,650.00` (quantity x rate no longer equals the line amount, and no rule checks that), sample 30 rate `None`.
+  - Ledger of 28 (cafe receipt, client C002, a restaurant): `5110`, the manifest says `6180`; the label is arguable for a restaurant client. The manifest was not changed after seeing the result.
+  - Sample 23 (dev): `vendor_is_client` instead of `missing_vendor_gstin` when the model repeats its mistake.
+- **Threshold D17:** no required value on the test split was wrong, at any confidence, so there is no sign that 0.70 was too low; this does not show it is right.
+- **What this does not show:** see the README list: 12 documents, one run, synthetic and clean, only 2 test documents with a blocking error, timings dominated by free-tier latency, no real client bills, no NVIDIA.
+- **Checkpoint:** `python -m scripts.evaluate_corpus --split test --allow-test --setup all` (from the cache) ends with `Live calls made in this run: 0`.
+

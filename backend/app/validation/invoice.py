@@ -98,6 +98,18 @@ def _gstin_issues(invoice: Invoice, client: Client) -> list[ValidationIssue]:
         invoice.vendor_gstin, "vendor_gstin", IssueCode.INVALID_VENDOR_GSTIN
     ):
         issues.append(problem)
+    elif invoice.vendor_gstin == client.gstin:
+        # A purchase bill is never issued by the client itself: the "Bill To" GSTIN was read as
+        # the vendor's. The value is on the page and valid, so only this rule can catch it.
+        issues.append(
+            make_issue(
+                IssueCode.VENDOR_IS_CLIENT,
+                f"The vendor GSTIN {invoice.vendor_gstin} is the GSTIN of the client "
+                f"({client.name}). It was probably read from the Bill To block; the supplier's "
+                "own GSTIN may be missing from the bill.",
+                "vendor_gstin",
+            )
+        )
 
     if not invoice.buyer_gstin:
         issues.append(

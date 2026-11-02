@@ -20,6 +20,7 @@ class IssueCode(StrEnum):
     MISSING_TOTAL = "missing_total"
     MISSING_VENDOR_GSTIN = "missing_vendor_gstin"
     INVALID_VENDOR_GSTIN = "invalid_vendor_gstin"
+    VENDOR_IS_CLIENT = "vendor_is_client"
     INVALID_BUYER_GSTIN = "invalid_buyer_gstin"
     BUYER_NOT_CLIENT = "buyer_not_client"
     LINE_ITEMS_SUM_MISMATCH = "line_items_sum_mismatch"
@@ -64,6 +65,7 @@ BLOCKING_CODES: frozenset[IssueCode] = frozenset(
         IssueCode.MISSING_TOTAL,
         IssueCode.MISSING_VENDOR_GSTIN,
         IssueCode.INVALID_VENDOR_GSTIN,
+        IssueCode.VENDOR_IS_CLIENT,
         IssueCode.INVALID_BUYER_GSTIN,
         IssueCode.BUYER_NOT_CLIENT,
         IssueCode.LINE_ITEMS_SUM_MISMATCH,

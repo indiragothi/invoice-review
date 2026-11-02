@@ -80,6 +80,25 @@ def test_line_items_plus_tax_must_match_the_total():
     assert "1176.00" in issues[0].message and "1276.00" in issues[0].message
 
 
+def test_prices_that_already_include_gst_are_fine():
+    # Sample 30: 850 in the lines and as the total, the GST rows (20.24 + 20.24) are information.
+    receipt = rcpt(
+        line_items=[item("850.00")],
+        tax_lines=[tax("CGST", "20.24"), tax("SGST", "20.24")],
+        total=D("850.00"),
+    )
+    assert codes(receipt) == []
+
+
+def test_a_total_that_matches_neither_way_is_still_a_mismatch():
+    receipt = rcpt(
+        line_items=[item("850.00")],
+        tax_lines=[tax("CGST", "20.24"), tax("SGST", "20.24")],
+        total=D("900.00"),
+    )
+    assert codes(receipt) == [IssueCode.LINE_ITEMS_SUM_MISMATCH]
+
+
 def test_round_off_and_tolerance_count():
     assert codes(rcpt(total=D("1175.70"), round_off=D("-0.30"))) == []
     assert codes(rcpt(total=D("1177.00"))) == []
