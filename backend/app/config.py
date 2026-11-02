@@ -84,6 +84,7 @@ class Settings(BaseSettings):
 class AppConfig:
     max_upload_bytes: int = 5 * 1024 * 1024
     max_pages: int = 5
+    session_seconds: int = 12 * 60 * 60  # login cookie lifetime
     money_tolerance: Decimal = Decimal("1.00")
     confidence_threshold: float = 0.70  # tuned on dev OCR documents, see decisions D16
     # Waits before each retry of a busy provider call (429 / 5xx); 4 attempts in all.

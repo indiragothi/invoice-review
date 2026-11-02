@@ -1,8 +1,10 @@
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.auth.routes import require_session
+from app.auth.routes import router as auth_router
 from app.config import APP_CONFIG, Settings, get_settings
 from app.database import create_db_engine, session_factory
 from app.documents import routes as document_routes
@@ -57,9 +59,11 @@ def create_app(
         lambda document, client, issues: draft_correction_email(document, client, issues, settings)
     )
 
-    app.include_router(reference_router)
-    app.include_router(document_routes.router)
-    app.include_router(export_router)
+    gate = [Depends(require_session)]
+    app.include_router(auth_router)
+    app.include_router(reference_router, dependencies=gate)
+    app.include_router(document_routes.router, dependencies=gate)
+    app.include_router(export_router, dependencies=gate)
 
     @app.get("/health")
     def health() -> dict[str, str]:

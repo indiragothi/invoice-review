@@ -2,7 +2,7 @@
 
 Target HTTP API for the backend. Implemented in milestone M3; keep this file in sync with the code.
 
-**Built so far:** `/health`, `GET /api/clients`, `GET /api/accounting/ledgers`, `POST` / `GET /api/documents`, `GET /api/documents/{id}`, `/file`, `/pages/{n}`, `PUT /api/documents/{id}` (field edit), `PUT .../ledger`, `POST .../decision`, `POST /bulk-approve`, `POST .../correction-email`, `POST .../retry`, `DELETE`, `GET /api/export`. Not built yet: auth.
+**Built so far:** `/health`, `GET /api/clients`, `GET /api/accounting/ledgers`, `POST` / `GET /api/documents`, `GET /api/documents/{id}`, `/file`, `/pages/{n}`, `PUT /api/documents/{id}` (field edit), `PUT .../ledger`, `POST .../decision`, `POST /bulk-approve`, `POST .../correction-email`, `POST .../retry`, `DELETE`, `GET /api/export`, and the password gate `GET /api/auth/session`, `POST /api/auth/login`, `POST /api/auth/logout`.
 
 Base URL (local): `http://localhost:8000` · Swagger UI: `/docs` · CORS allows the Vite app at `http://localhost:5173` (or `ALLOWED_ORIGIN`).
 
@@ -29,6 +29,16 @@ Base URL (local): `http://localhost:8000` · Swagger UI: `/docs` · CORS allows 
 | `POST` | `/api/documents/{id}/correction-email` | Draft a supplier correction email (never sent) |
 | `GET` | `/api/export` | `?format=csv\|xlsx&client_id=` approved records only |
 | `DELETE` | `/api/documents/{id}` | Delete a review and its files (demo reset) |
+
+## Password gate
+
+Off unless `APP_ACCESS_PASSWORD` is set (then `APP_SESSION_SECRET` is required too). When on, every route except `/health` and `/api/auth/*` answers `401` without a valid session cookie; the check runs before body validation, so an unsigned request never reaches a handler.
+
+- `GET /api/auth/session` -> `{ "gate_enabled": bool, "authenticated": bool }` (with the gate off: `false` / `true`).
+- `POST /api/auth/login` `{ "password": "..." }` -> the same shape and a cookie; wrong password `401`, missing field `422`. With the gate off it answers `authenticated: true` and sets nothing.
+- `POST /api/auth/logout` -> `204`, cookie cleared.
+
+Cookie `invoice_review_session`: value `<expiry>.<HMAC-SHA256 of the expiry>`, signed with `APP_SESSION_SECRET`; `HttpOnly`, `SameSite=Lax`, `Secure` when the request is HTTPS (or `X-Forwarded-Proto: https`), 12 hours. The password is compared in constant time. There is no server-side session store, so logout clears the browser's cookie but does not revoke a copied one before it expires.
 
 ## Status codes
 

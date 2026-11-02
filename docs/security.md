@@ -20,11 +20,11 @@ The roadmap asks for a security pass. This is the threat list the build must add
 
 ## Checklist for the security pass (milestone M6)
 
-- [ ] Upload a renamed `.exe` as `.pdf` → rejected
-- [ ] Upload a 50-page PDF → rejected
-- [ ] Bill containing an injection sentence → fields unaffected or flagged
-- [ ] `grep` the repo and logs for API keys → none
-- [ ] Approve a `needs_review` document via direct API call → `409`
-- [ ] Export a vendor name `=HYPERLINK(...)` → rendered as text
-- [ ] Deployed app without the password cookie → `401` on every `/api/documents` route
-- [ ] Approve a `ready` document with no ledger selected → `409`
+- [x] Upload a renamed `.exe` as `.pdf` → rejected (`415`)
+- [x] Upload a 50-page PDF → rejected (`413`)
+- [x] Bill containing an injection sentence → fields unaffected or flagged (one live run, see `build-along.md` slice 54)
+- [x] `grep` the repo and logs for API keys → none
+- [x] Approve a `needs_review` document via direct API call → `409`
+- [x] Export a vendor name `=HYPERLINK(...)` → rendered as text (CSV and XLSX)
+- [ ] Deployed app without the password cookie → `401` on every `/api/documents` route (checked locally with the gate on: `auth_samples.py`; repeat on the live URL after deploy)
+- [x] Approve a `ready` document with no ledger selected → `409`

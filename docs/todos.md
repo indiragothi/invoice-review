@@ -14,7 +14,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 | M3 Pipeline + API | ✅ Done (your manual check of `/docs` and the XLSX is open; test-split samples are left for M5) |
 | M4 Review UI | ✅ Done (walkthrough run by the owner; demo document 3 used `07-wrong-tax-split` instead of `06`, see `build-along.md`) |
 | M5 Evaluation | ✅ Done (30 documents, Gemini only; see D15 and the README Results) |
-| M6 Ship | ⬜ Not started |
+| M6 Ship | 🚧 In progress (gate, login page and 7 of 8 security items done; deploy, README, video open) |
 | M7 Stretch | ⬜ Not started |
 
 ---
@@ -165,8 +165,9 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 
 ## M6 Ship
 
-- [ ] Shared-password gate (`auth/`) + login page
-- [ ] Security checklist in `security.md`, every item ticked
+- [x] Shared-password gate (`auth/`): backend, checked offline and on a real server
+- [x] Login page (checked in the browser by the owner on 2026-11-02: login, wrong password, sign out)
+- [ ] Security checklist in `security.md`, every item ticked (7 of 8 done; item 7 needs the deployed URL)
 - [ ] Dockerfile: built SPA + FastAPI in one image; runs locally
 - [ ] Choose a free host; deploy with sample data only
 - [ ] README: setup, screenshots, results, live URL

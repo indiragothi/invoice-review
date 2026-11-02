@@ -69,6 +69,16 @@ async function errorFrom(response: Response): Promise<ApiError> {
   return new ApiError(response.status, detailText(body.detail, fallback), document)
 }
 
+let onUnauthorized: (() => void) | null = null
+
+/** App calls this once: it is told when a protected call comes back 401 (session expired). */
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  onUnauthorized = handler
+}
+
+// A wrong password and the first session check answer 401 as part of normal sign-in.
+const SIGN_IN_PATHS = ['/api/auth/login', '/api/auth/session']
+
 async function send(path: string, init: RequestInit = {}): Promise<Response> {
   let response: Response
   try {
@@ -76,6 +86,7 @@ async function send(path: string, init: RequestInit = {}): Promise<Response> {
   } catch {
     throw new ApiError(0, 'Cannot reach the server. Is the backend running?')
   }
+  if (response.status === 401 && !SIGN_IN_PATHS.includes(path)) onUnauthorized?.()
   if (!response.ok) throw await errorFrom(response)
   return response
 }
