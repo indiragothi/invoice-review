@@ -85,7 +85,7 @@ export default function App() {
       {screen.name === 'result' && (
         <ReviewScreen
           key={screen.document.id}
-          record={screen.document}
+          initial={screen.document}
           onUpload={() => setScreen({ name: 'upload' })}
           onInbox={() => setScreen({ name: 'inbox' })}
         />

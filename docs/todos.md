@@ -12,7 +12,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 | M1 Scaffold, samples, read + extract | ✅ Done (NVIDIA check optional, open) |
 | M2 Ground + validate | ✅ Done (`READINGS_DISAGREE` and `DUPLICATE_FILE` move to M3) |
 | M3 Pipeline + API | ✅ Done (your manual check of `/docs` and the XLSX is open; test-split samples are left for M5) |
-| M4 Review UI | 🟡 In progress (slices 1-5 done) |
+| M4 Review UI | 🟡 In progress (slices 1-8 done) |
 | M5 Evaluation | ⬜ Not started |
 | M6 Ship | ⬜ Not started |
 | M7 Stretch | ⬜ Not started |
@@ -139,10 +139,10 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [ ] *(you)* In the browser (`http://localhost:5173`): pick a client, upload one dev sample, see the processing screen and the result summary; also try a `.txt` file and a file over 5 MB
 - [x] Document inbox with status / client filters (checkboxes come with bulk approve)
 - [x] Review screen: page image with box overlay, click field ↔ highlight box (read-only; browser check by you is open)
-- [ ] Editable fields incl. line items; source / confidence / agree-differ badges
-- [ ] Issues panel (errors vs warnings, GSTIN fix suggestion)
-- [ ] Ledger picker with suggestion and reason
-- [ ] Approve / reject; bulk approve on the inbox
+- [x] Editable fields incl. line items; source / confidence / agree-differ badges (adding or removing line items is not supported by the API; browser check by you is open)
+- [x] Issues panel (errors vs warnings, GSTIN fix suggestion)
+- [x] Ledger picker with suggestion and reason (browser check by you is open)
+- [x] Approve / reject; bulk approve on the inbox (browser check by you is open)
 - [ ] Correction-email dialog with Copy
 - [ ] Delete review; export button
 - [ ] Loading, error and provider-busy states

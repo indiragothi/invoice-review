@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { api } from '../lib/api.ts'
 import { groupFields } from '../lib/fields.ts'
-import type { Client, DocumentRecord, Issue } from '../lib/types.ts'
+import type { Client, Decision, DocumentRecord, Issue } from '../lib/types.ts'
+import { DecisionBar } from './DecisionBar.tsx'
 import { FieldRow } from './FieldRow.tsx'
+import { IssuesPanel } from './IssuesPanel.tsx'
+import { LedgerPicker } from './LedgerPicker.tsx'
 import { PageViewer } from './PageViewer.tsx'
 import { StatusBadge } from './StatusBadge.tsx'
 import { Badge } from './ui/Badge.tsx'
@@ -11,12 +14,14 @@ import { Button } from './ui/Button.tsx'
 import { Card } from './ui/Card.tsx'
 
 interface ReviewScreenProps {
-  record: DocumentRecord
+  /** The review as loaded; later answers from the server replace it here. */
+  initial: DocumentRecord
   onInbox: () => void
   onUpload: () => void
 }
 
-export function ReviewScreen({ record, onInbox, onUpload }: ReviewScreenProps) {
+export function ReviewScreen({ initial, onInbox, onUpload }: ReviewScreenProps) {
+  const [record, setRecord] = useState(initial)
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<string | null>(null)
   const [client, setClient] = useState<Client | undefined>(undefined)
@@ -58,6 +63,26 @@ export function ReviewScreen({ record, onInbox, onUpload }: ReviewScreenProps) {
     document.getElementById(`field-${path}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }
 
+  // A decided review is locked on the server too (409); the inputs are not offered at all.
+  const editable = record.status !== 'approved' && record.status !== 'rejected'
+
+  async function save(path: string, text: string | null) {
+    const updated = await api.editFields(record.id, { [path]: text })
+    setRecord(updated)
+  }
+
+  async function decide(decision: Decision) {
+    const updated = await api.decide(record.id, decision)
+    setRecord(updated)
+  }
+
+  async function chooseLedger(code: string) {
+    const updated = await api.selectLedger(record.id, code)
+    setRecord(updated)
+  }
+
+  const fieldPaths = useMemo(() => new Set(Object.keys(data?.fields ?? {})), [data])
+
   function rows(paths: string[]) {
     if (data === null) return null
     return paths.map((path) => {
@@ -70,7 +95,9 @@ export function ReviewScreen({ record, onInbox, onUpload }: ReviewScreenProps) {
           field={field}
           selected={selected === path}
           issues={issuesByField.get(path) ?? []}
+          editable={editable}
           onSelect={select}
+          onSave={save}
         />
       )
     })
@@ -102,6 +129,8 @@ export function ReviewScreen({ record, onInbox, onUpload }: ReviewScreenProps) {
         </div>
       </div>
 
+      <DecisionBar status={record.status} onDecide={decide} />
+
       {record.status === 'failed' || data === null || groups === null ? (
         <Card role="alert" className="text-sm">
           <p className="font-medium text-red-800">This document has no extracted fields.</p>
@@ -123,6 +152,14 @@ export function ReviewScreen({ record, onInbox, onUpload }: ReviewScreenProps) {
           </div>
 
           <div className="space-y-4">
+            <IssuesPanel
+              issues={record.issues}
+              fieldPaths={fieldPaths}
+              editable={editable}
+              onSelectField={select}
+              onApplySuggestion={save}
+            />
+            <LedgerPicker ledger={record.ledger} editable={editable} onSelect={chooseLedger} />
             <Card className="space-y-1 p-2">
               <h2 className="px-3 pt-1 text-sm font-semibold">Fields</h2>
               <ul className="space-y-0.5">

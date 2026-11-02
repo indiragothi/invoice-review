@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react'
 
-import { api } from '../lib/api.ts'
+import { ApiError, api } from '../lib/api.ts'
 import { formatDateTime } from '../lib/format.ts'
-import type { Client, DocumentFilters, DocumentRecord, DocumentStatus } from '../lib/types.ts'
 import { STATUS_LABEL } from '../lib/status.ts'
+import type { Client, DocumentFilters, DocumentRecord, DocumentStatus } from '../lib/types.ts'
 import { StatusBadge } from './StatusBadge.tsx'
 import { Badge } from './ui/Badge.tsx'
 import { Button } from './ui/Button.tsx'
 import { Card } from './ui/Card.tsx'
+import { ConfirmDialog } from './ui/ConfirmDialog.tsx'
 
 const STATUSES = Object.keys(STATUS_LABEL) as DocumentStatus[]
+
+interface BulkSummary {
+  approved: string[]
+  skipped: { name: string; reason: string }[]
+}
 
 type Loaded =
   | { key: string; kind: 'ok'; documents: DocumentRecord[] }
@@ -32,6 +38,11 @@ export function InboxScreen({ onOpen, onUpload, onHome }: InboxScreenProps) {
   // Bumped by "Refresh"; part of the key so the same filters load again.
   const [reload, setReload] = useState(0)
   const [loaded, setLoaded] = useState<Loaded | null>(null)
+  const [selection, setSelection] = useState<ReadonlySet<string>>(new Set())
+  const [confirming, setConfirming] = useState(false)
+  const [approving, setApproving] = useState(false)
+  const [bulkError, setBulkError] = useState<string | null>(null)
+  const [summary, setSummary] = useState<BulkSummary | null>(null)
 
   const key = `${status}|${clientId}|${reload}`
 
@@ -70,6 +81,46 @@ export function InboxScreen({ onOpen, onUpload, onHome }: InboxScreenProps) {
 
   const loading = loaded === null || loaded.key !== key
   const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? id
+
+  // Only `ready` documents can be approved in bulk; other rows have no checkbox.
+  const documents = !loading && loaded.kind === 'ok' ? loaded.documents : []
+  const readyDocs = documents.filter((doc) => doc.status === 'ready')
+  const chosen = readyDocs.filter((doc) => selection.has(doc.id))
+  const allChosen = readyDocs.length > 0 && chosen.length === readyDocs.length
+
+  function toggle(id: string) {
+    const next = new Set(selection)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setSelection(next)
+  }
+
+  function toggleAll() {
+    setSelection(allChosen ? new Set() : new Set(readyDocs.map((doc) => doc.id)))
+  }
+
+  async function approveChosen() {
+    setApproving(true)
+    setBulkError(null)
+    const names = new Map(documents.map((doc) => [doc.id, doc.original_filename]))
+    try {
+      const result = await api.bulkApprove(chosen.map((doc) => doc.id))
+      setSummary({
+        approved: result.approved.map((doc) => doc.original_filename),
+        skipped: result.skipped.map((item) => ({
+          name: names.get(item.id) ?? item.id,
+          reason: item.reason,
+        })),
+      })
+      setSelection(new Set())
+      setReload((n) => n + 1)
+    } catch (failure) {
+      setBulkError(failure instanceof ApiError ? failure.detail : messageOf(failure))
+    } finally {
+      setApproving(false)
+      setConfirming(false)
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -125,6 +176,60 @@ export function InboxScreen({ onOpen, onUpload, onHome }: InboxScreenProps) {
         </Button>
       </Card>
 
+      {summary && (
+        <div role="status" className="space-y-1 rounded-lg border border-zinc-200 bg-white p-3 text-sm">
+          <p className="font-medium text-emerald-800">
+            Approved {summary.approved.length}
+            {summary.approved.length > 0 && `: ${summary.approved.join(', ')}`}
+          </p>
+          {summary.skipped.length > 0 && (
+            <div>
+              <p className="font-medium text-amber-800">Skipped {summary.skipped.length}</p>
+              <ul className="list-disc pl-5 text-zinc-700">
+                {summary.skipped.map((item, index) => (
+                  <li key={`${item.name}-${index}`}>
+                    {item.name}: {item.reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <Button variant="ghost" onClick={() => setSummary(null)}>
+            Dismiss
+          </Button>
+        </div>
+      )}
+
+      {bulkError && (
+        <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          Bulk approve failed: {bulkError}
+        </p>
+      )}
+
+      {chosen.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm">
+          <span>{chosen.length} selected</span>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setSelection(new Set())}>
+              Clear
+            </Button>
+            <Button onClick={() => setConfirming(true)}>Approve {chosen.length} selected</Button>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={confirming}
+        title={`Approve ${chosen.length} documents?`}
+        confirmLabel="Approve"
+        busy={approving}
+        onConfirm={() => void approveChosen()}
+        onCancel={() => setConfirming(false)}
+      >
+        They will be locked and included in the export. A document without a selected ledger is
+        skipped, and you will see why.
+      </ConfirmDialog>
+
       {loading && <p className="text-sm text-zinc-500">Loading documents…</p>}
 
       {!loading && loaded.kind === 'error' && (
@@ -147,6 +252,15 @@ export function InboxScreen({ onOpen, onUpload, onHome }: InboxScreenProps) {
           <table className="w-full text-left text-sm">
             <thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase text-zinc-500">
               <tr>
+                <th className="w-8 px-3 py-2">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all ready documents"
+                    checked={allChosen}
+                    disabled={readyDocs.length === 0}
+                    onChange={toggleAll}
+                  />
+                </th>
                 <th className="px-3 py-2 font-medium">Document</th>
                 <th className="px-3 py-2 font-medium">Client</th>
                 <th className="px-3 py-2 font-medium">Type</th>
@@ -161,6 +275,16 @@ export function InboxScreen({ onOpen, onUpload, onHome }: InboxScreenProps) {
                 const warnings = doc.issues.length - errors
                 return (
                   <tr key={doc.id} className="hover:bg-zinc-50">
+                    <td className="px-3 py-2">
+                      {doc.status === 'ready' && (
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${doc.original_filename}`}
+                          checked={selection.has(doc.id)}
+                          onChange={() => toggle(doc.id)}
+                        />
+                      )}
+                    </td>
                     <td className="px-3 py-2">
                       <button
                         type="button"
