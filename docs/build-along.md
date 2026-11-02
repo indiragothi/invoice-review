@@ -893,3 +893,17 @@ Owner decisions (2026-11-01): screens are switched by **state in `App.tsx`** (no
 - **Commands** (from `frontend/`): `pnpm exec tsc -b --pretty false`, `pnpm lint`, `pnpm build`.
 - **Result:** the three checks pass. **Not done:** the failure screens were not provoked in a browser (for example by stopping the backend while on the inbox, which should show "Cannot reach the server. Is the backend running?" and a **Try again**), and no provider failure was forced (no quota is spent on purpose).
 - **Checkpoint:** `tsc`, `lint`, `build` clean.
+
+### M4 walkthrough (owner, 2026-11-02)  (milestone M4 exit)
+
+- **Outcome:** the owner ran the demo documents through the browser (`pnpm dev` on `:5173`, backend on `:8000`, Gemini) from welcome to export and delete, and everything behaved as expected.
+- **Documents (client C001 each):** `01-intra-classic.pdf` (clean, `ready`, ledger 6150, approve after choosing the ledger), `05-invalid-vendor-gstin.pdf` (`needs_review`, GSTIN suggestion, correction email), `07-wrong-tax-split.pdf` (`needs_review`, cannot be approved, reject), `11-fuel-receipt.jpg` (receipt, `ready`, ledger 6130). Then the inbox filters, bulk approve, CSV / XLSX export, delete, and the error cases (a `.txt` file, a file over 5 MB, the backend stopped while on the inbox).
+- **Deviation from `roadmap.md`:** demo document 3 is `07-wrong-tax-split` (dev split), not `06-total-mismatch` (test split). Both show the same thing (`needs_review`, approve refused); `06` was left out so that the test split stays untouched until the M5 evaluation, as decided at the M3 exit. The walkthrough also started from an empty `backend/data/` (the old one renamed), because earlier test uploads of the same files would have been flagged `duplicate_invoice`.
+- **Model calls:** about 9 (4 documents x 2 calls, plus one correction-email draft).
+- **Result:** no failure reported. The details of what was checked are in slices 34 to 44 above.
+
+#### M4 summary
+
+Slices 34-44 built the review UI in `frontend/`: a typed API client (`lib/api.ts`, `lib/types.ts`), UI primitives, screens switched by state in `App.tsx` (no router), welcome, upload with client picker and preview, processing with retry, an inbox with server-side filters, bulk approve and export, and the review screen with the page overlay (boxes drawn in percent of the image's natural size), editable fields, issues with the GSTIN suggestion, ledger picker, approve / reject / delete behind confirm dialogs, and the correction-email draft with Copy. The screens only show what the server decides: the approval rules, "supplier can fix" and "low confidence" all come from the backend, so the UI cannot disagree with the policy. Model calls start only from a click. Checks: `tsc`, `lint` and `build` pass; no frontend unit tests (the project tests only pure backend modules). **Open for later:** the login screen and the password gate (M6); adding or removing line items (the API edits existing paths only); the test split with the real model and the confidence threshold (M5). **Next:** M5, evaluation.
+
+Important locations: `frontend/src/App.tsx`, `frontend/src/lib/api.ts`, `frontend/src/components/ReviewScreen.tsx`, `PageViewer.tsx`, `FieldRow.tsx`, `IssuesPanel.tsx`, `LedgerPicker.tsx`, `DecisionBar.tsx`, `InboxScreen.tsx`, `CorrectionEmail.tsx`.

@@ -20,6 +20,7 @@ dist/
 *.sqlite3
 backend/uploads/
 backend/data/
+backend/data_backup_*/
 playground/output/
 
 # real documents must never be committed (synthetic samples are allowed in samples/)
