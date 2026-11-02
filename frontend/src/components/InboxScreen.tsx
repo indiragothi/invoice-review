@@ -3,7 +3,13 @@ import { useEffect, useState } from 'react'
 import { ApiError, api } from '../lib/api.ts'
 import { formatDateTime } from '../lib/format.ts'
 import { STATUS_LABEL } from '../lib/status.ts'
-import type { Client, DocumentFilters, DocumentRecord, DocumentStatus } from '../lib/types.ts'
+import type {
+  Client,
+  DocumentFilters,
+  DocumentRecord,
+  DocumentStatus,
+  ExportFormat,
+} from '../lib/types.ts'
 import { StatusBadge } from './StatusBadge.tsx'
 import { Badge } from './ui/Badge.tsx'
 import { Button } from './ui/Button.tsx'
@@ -11,6 +17,10 @@ import { Card } from './ui/Card.tsx'
 import { ConfirmDialog } from './ui/ConfirmDialog.tsx'
 
 const STATUSES = Object.keys(STATUS_LABEL) as DocumentStatus[]
+const EXPORT_FORMATS: { format: ExportFormat; label: string }[] = [
+  { format: 'csv', label: 'CSV' },
+  { format: 'xlsx', label: 'Excel (XLSX)' },
+]
 
 interface BulkSummary {
   approved: string[]
@@ -174,6 +184,23 @@ export function InboxScreen({ onOpen, onUpload, onHome }: InboxScreenProps) {
         <Button variant="secondary" onClick={() => setReload((n) => n + 1)}>
           Refresh
         </Button>
+        <div className="ml-auto">
+          <p className="text-xs font-medium text-zinc-600">
+            Export approved{clientId !== '' ? ` (${clientName(clientId)})` : ' (all clients)'}
+          </p>
+          <div className="mt-1 flex gap-2">
+            {EXPORT_FORMATS.map(({ format, label }) => (
+              <a
+                key={format}
+                href={api.exportUrl(format, clientId === '' ? undefined : clientId)}
+                download
+                className="inline-flex items-center rounded-md border border-zinc-300 bg-white px-3.5 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+              >
+                {label}
+              </a>
+            ))}
+          </div>
+        </div>
       </Card>
 
       {summary && (
@@ -236,6 +263,9 @@ export function InboxScreen({ onOpen, onUpload, onHome }: InboxScreenProps) {
         <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm">
           <p className="font-medium text-red-800">Could not load the documents</p>
           <p className="mt-1 text-red-700">{loaded.message}</p>
+          <Button className="mt-3" variant="secondary" onClick={() => setReload((n) => n + 1)}>
+            Try again
+          </Button>
         </div>
       )}
 

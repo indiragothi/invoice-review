@@ -18,7 +18,11 @@ interface UploadScreenProps {
 }
 
 export function UploadScreen({ onSubmit, onBack }: UploadScreenProps) {
-  const [clients, setClients] = useState<ClientsState>({ kind: 'loading' })
+  // The answer is tagged with the attempt that asked for it; "Try again" bumps the attempt.
+  const [attempt, setAttempt] = useState(0)
+  const [answer, setAnswer] = useState<
+    { attempt: number; clients: Client[] } | { attempt: number; message: string } | null
+  >(null)
   const [clientId, setClientId] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
@@ -30,18 +34,25 @@ export function UploadScreen({ onSubmit, onBack }: UploadScreenProps) {
     api
       .clients()
       .then((list) => {
-        if (!cancelled) setClients({ kind: 'ready', clients: list })
+        if (!cancelled) setAnswer({ attempt, clients: list })
       })
       .catch((error: unknown) => {
         if (!cancelled) {
           const message = error instanceof Error ? error.message : 'Unknown error'
-          setClients({ kind: 'error', message })
+          setAnswer({ attempt, message })
         }
       })
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [attempt])
+
+  const clients: ClientsState =
+    answer === null || answer.attempt !== attempt
+      ? { kind: 'loading' }
+      : 'message' in answer
+        ? { kind: 'error', message: answer.message }
+        : { kind: 'ready', clients: answer.clients }
 
   function choose(chosen: File | undefined) {
     if (!chosen) return
@@ -67,6 +78,11 @@ export function UploadScreen({ onSubmit, onBack }: UploadScreenProps) {
           <p role="alert" className="text-sm text-red-700">
             Could not load the clients: {clients.message}
           </p>
+        )}
+        {clients.kind === 'error' && (
+          <Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>
+            Try again
+          </Button>
         )}
         {clients.kind === 'ready' && (
           <>

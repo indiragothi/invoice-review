@@ -12,7 +12,7 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 | M1 Scaffold, samples, read + extract | ✅ Done (NVIDIA check optional, open) |
 | M2 Ground + validate | ✅ Done (`READINGS_DISAGREE` and `DUPLICATE_FILE` move to M3) |
 | M3 Pipeline + API | ✅ Done (your manual check of `/docs` and the XLSX is open; test-split samples are left for M5) |
-| M4 Review UI | 🟡 In progress (slices 1-8 done) |
+| M4 Review UI | 🟡 In progress (slices 1-11 done) |
 | M5 Evaluation | ⬜ Not started |
 | M6 Ship | ⬜ Not started |
 | M7 Stretch | ⬜ Not started |
@@ -143,10 +143,10 @@ Step-by-step checklist for the whole build. Tick a box (`- [x]`) as soon as a st
 - [x] Issues panel (errors vs warnings, GSTIN fix suggestion)
 - [x] Ledger picker with suggestion and reason (browser check by you is open)
 - [x] Approve / reject; bulk approve on the inbox (browser check by you is open)
-- [ ] Correction-email dialog with Copy
-- [ ] Delete review; export button
-- [ ] Loading, error and provider-busy states
-- [ ] `tsc`, `lint`, `build` pass
+- [x] Correction-email dialog with Copy (browser check by you is open; 1 model call per draft)
+- [x] Delete review; export button (browser check by you is open)
+- [x] Loading, error and provider-busy states
+- [x] `tsc`, `lint`, `build` pass (re-run after every slice)
 - [ ] Update `build-along.md`
 - [ ] **M4 exit:** manual walkthrough of the 4 demo documents works end to end
 

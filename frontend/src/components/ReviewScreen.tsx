@@ -3,7 +3,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api.ts'
 import { groupFields } from '../lib/fields.ts'
 import type { Client, Decision, DocumentRecord, Issue } from '../lib/types.ts'
+import { CorrectionEmail } from './CorrectionEmail.tsx'
 import { DecisionBar } from './DecisionBar.tsx'
+import { DeleteReview } from './DeleteReview.tsx'
+import { FailedNotice } from './FailedNotice.tsx'
 import { FieldRow } from './FieldRow.tsx'
 import { IssuesPanel } from './IssuesPanel.tsx'
 import { LedgerPicker } from './LedgerPicker.tsx'
@@ -18,9 +21,11 @@ interface ReviewScreenProps {
   initial: DocumentRecord
   onInbox: () => void
   onUpload: () => void
+  /** The review was deleted on the server. */
+  onDeleted: () => void
 }
 
-export function ReviewScreen({ initial, onInbox, onUpload }: ReviewScreenProps) {
+export function ReviewScreen({ initial, onInbox, onUpload, onDeleted }: ReviewScreenProps) {
   const [record, setRecord] = useState(initial)
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<string | null>(null)
@@ -121,7 +126,17 @@ export function ReviewScreen({ initial, onInbox, onUpload }: ReviewScreenProps) 
             {warnings > 0 && <Badge tone="warning">{warnings} warnings</Badge>}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <CorrectionEmail
+            documentId={record.id}
+            version={record.updated_at}
+            available={record.status !== 'failed' && record.supplier_action_required}
+          />
+          <DeleteReview
+            documentId={record.id}
+            filename={record.original_filename}
+            onDeleted={onDeleted}
+          />
           <Button variant="secondary" onClick={onInbox}>
             Back to inbox
           </Button>
@@ -132,10 +147,7 @@ export function ReviewScreen({ initial, onInbox, onUpload }: ReviewScreenProps) 
       <DecisionBar status={record.status} onDecide={decide} />
 
       {record.status === 'failed' || data === null || groups === null ? (
-        <Card role="alert" className="text-sm">
-          <p className="font-medium text-red-800">This document has no extracted fields.</p>
-          {record.error_message && <p className="mt-1 text-zinc-700">{record.error_message}</p>}
-        </Card>
+        <FailedNotice record={record} onRecord={setRecord} />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="lg:sticky lg:top-4 lg:self-start">

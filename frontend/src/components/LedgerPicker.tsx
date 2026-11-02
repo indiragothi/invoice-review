@@ -19,7 +19,10 @@ interface LedgerPickerProps {
 }
 
 export function LedgerPicker({ ledger, editable, onSelect }: LedgerPickerProps) {
-  const [ledgers, setLedgers] = useState<LedgersState>({ kind: 'loading' })
+  const [attempt, setAttempt] = useState(0)
+  const [answer, setAnswer] = useState<
+    { attempt: number; ledgers: Ledger[] } | { attempt: number; message: string } | null
+  >(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -28,18 +31,25 @@ export function LedgerPicker({ ledger, editable, onSelect }: LedgerPickerProps) 
     api
       .ledgers()
       .then((list) => {
-        if (!cancelled) setLedgers({ kind: 'ready', ledgers: list })
+        if (!cancelled) setAnswer({ attempt, ledgers: list })
       })
       .catch((failure: unknown) => {
         if (!cancelled) {
           const message = failure instanceof Error ? failure.message : 'Unknown error'
-          setLedgers({ kind: 'error', message })
+          setAnswer({ attempt, message })
         }
       })
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [attempt])
+
+  const ledgers: LedgersState =
+    answer === null || answer.attempt !== attempt
+      ? { kind: 'loading' }
+      : 'message' in answer
+        ? { kind: 'error', message: answer.message }
+        : { kind: 'ready', ledgers: answer.ledgers }
 
   async function choose(code: string) {
     if (code === '') return
@@ -94,6 +104,11 @@ export function LedgerPicker({ ledger, editable, onSelect }: LedgerPickerProps) 
         <p role="alert" className="text-sm text-red-700">
           Could not load the ledgers: {ledgers.message}
         </p>
+      )}
+      {ledgers.kind === 'error' && (
+        <Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>
+          Try again
+        </Button>
       )}
 
       {ledgers.kind === 'ready' && (

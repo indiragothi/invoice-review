@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import type { ReactNode } from 'react'
 
 interface DialogProps {
@@ -8,10 +8,12 @@ interface DialogProps {
   children: ReactNode
   /** Buttons shown at the bottom. */
   footer?: ReactNode
+  size?: 'md' | 'lg'
 }
 
 /** Modal built on the native <dialog>: focus trap, Esc to close and backdrop come for free. */
-export function Dialog({ open, title, onClose, children, footer }: DialogProps) {
+export function Dialog({ open, title, onClose, children, footer, size = 'md' }: DialogProps) {
+  const titleId = useId()
   const ref = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
@@ -28,11 +30,11 @@ export function Dialog({ open, title, onClose, children, footer }: DialogProps) 
       onClick={(event) => {
         if (event.target === ref.current) onClose()
       }}
-      aria-labelledby="dialog-title"
-      className="m-auto w-full max-w-lg rounded-lg p-0 shadow-xl backdrop:bg-zinc-900/40"
+      aria-labelledby={titleId}
+      className={`m-auto w-full ${size === 'lg' ? 'max-w-2xl' : 'max-w-lg'} rounded-lg p-0 shadow-xl backdrop:bg-zinc-900/40`}
     >
       <div className="p-5">
-        <h2 id="dialog-title" className="text-lg font-semibold">
+        <h2 id={titleId} className="text-lg font-semibold">
           {title}
         </h2>
         <div className="mt-3 text-sm text-zinc-700">{children}</div>

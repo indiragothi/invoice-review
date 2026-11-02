@@ -88,6 +88,7 @@ export default function App() {
           initial={screen.document}
           onUpload={() => setScreen({ name: 'upload' })}
           onInbox={() => setScreen({ name: 'inbox' })}
+          onDeleted={() => setScreen({ name: 'inbox' })}
         />
       )}
     </main>
